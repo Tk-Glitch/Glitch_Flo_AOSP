@@ -242,14 +242,14 @@ else
 fi
 
 #GPU Governor
-GPU_GOV=`grep selected.2 /tmp/aroma/gpu.prop | cut -d '=' -f2`
-echo -e "\n\n##### GPU Governor #####\n# 1 Ondemand (default)" >> $CONFIGFILE
-echo -e "# 2 Interactive\n# 3 Performance\n" >> $CONFIGFILE
-if [ "$GPU_GOV" = 2 ]; then
-  echo "GPU_GOV=2" >> $CONFIGFILE;
-else
-  echo "GPU_GOV=1" >> $CONFIGFILE;
-fi
+#GPU_GOV=`grep selected.2 /tmp/aroma/gpu.prop | cut -d '=' -f2`
+#echo -e "\n\n##### GPU Governor #####\n# 1 Ondemand (default)" >> $CONFIGFILE
+#echo -e "# 2 Interactive\n# 3 Performance\n" >> $CONFIGFILE
+#if [ "$GPU_GOV" = 2 ]; then
+#  echo "GPU_GOV=2" >> $CONFIGFILE;
+#else
+#  echo "GPU_GOV=1" >> $CONFIGFILE;
+#fi
 
 #I/O scheduler
 IOSCHED=`grep selected.1 /tmp/aroma/disk.prop | cut -d '=' -f2`

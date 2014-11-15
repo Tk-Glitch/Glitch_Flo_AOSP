@@ -248,11 +248,7 @@ selectbox(
   "504MHz","(balanced)",0,
   "545MHz","(fast)",0,
   "600MHz","(extreme)",0,
-  "627MHz","(glitchy)",0,
-
-  "GPU governor","",2,
-  "Ondemand","(stock)",1,
-  "Interactive","",0
+  "627MHz","(glitchy)",0
 );
 
 selectbox(
