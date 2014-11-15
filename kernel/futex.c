@@ -639,8 +639,7 @@ void exit_pi_state_list(struct task_struct *curr)
  */
 static int
 lookup_pi_state(u32 uval, struct futex_hash_bucket *hb,
-		union futex_key *key, struct futex_pi_state **ps,
-		struct task_struct *task)
+		union futex_key *key, struct futex_pi_state **ps)
 {
 	struct futex_pi_state *pi_state = NULL;
 	struct futex_q *this, *next;
@@ -721,16 +720,6 @@ lookup_pi_state(u32 uval, struct futex_hash_bucket *hb,
 			if (pid != task_pid_vnr(pi_state->owner))
 				return -EINVAL;
 
-			/*
-			 * Protect against a corrupted uval. If uval
-			 * is 0x80000000 then pid is 0 and the waiter
-			 * bit is set. So the deadlock check in the
-			 * calling code has failed and we did not fall
-			 * into the check above due to !pid.
-			 */
-			if (task && pi_state->owner == task)
-				return -EDEADLK;
-
 		out_state:
 			atomic_inc(&pi_state->refcount);
 			*ps = pi_state;
@@ -747,11 +736,6 @@ lookup_pi_state(u32 uval, struct futex_hash_bucket *hb,
 	p = futex_find_get_task(pid);
 	if (!p)
 		return -ESRCH;
-
-	if (!p->mm) {
-		put_task_struct(p);
-		return -EPERM;
-	}
 
 	/*
 	 * We need to look at the task state flags to figure out,
@@ -847,10 +831,18 @@ retry:
 		return -EDEADLK;
 
 	/*
-	 * Surprise - we got the lock. Just return to userspace:
+	 * Surprise - we got the lock, but we do not trust user space at all.
 	 */
-	if (unlikely(!curval))
-		return 1;
+	if (unlikely(!curval)) {
+		/*
+		 * We verify whether there is kernel state for this
+		 * futex. If not, we can safely assume, that the 0 ->
+		 * TID transition is correct. If state exists, we do
+		 * not bother to fixup the user space state as it was
+		 * corrupted already.
+		 */
+		return futex_top_waiter(hb, key) ? -EINVAL : 1;
+	}
 
 	uval = curval;
 
@@ -890,7 +882,7 @@ retry:
 	 * We dont have the lock. Look up the PI state (or create it if
 	 * we are the first waiter):
 	 */
-	ret = lookup_pi_state(uval, hb, key, ps, task);
+	ret = lookup_pi_state(uval, hb, key, ps);
 
 	if (unlikely(ret)) {
 		switch (ret) {
@@ -1278,15 +1270,9 @@ void requeue_pi_wake_futex(struct futex_q *q, union futex_key *key,
  * then direct futex_lock_pi_atomic() to force setting the FUTEX_WAITERS bit.
  * hb1 and hb2 must be held by the caller.
  *
-<<<<<<< HEAD
  * Returns:
  *  0 - failed to acquire the lock atomicly
  *  1 - acquired the lock
-=======
- * Return:
- *  0 - failed to acquire the lock atomically;
- * >0 - acquired the lock, return value is vpid of the top_waiter
->>>>>>> 866293e... futex: Add another early deadlock detection check
  * <0 - error
  */
 static int futex_proxy_trylock_atomic(u32 __user *pifutex,
@@ -1297,7 +1283,7 @@ static int futex_proxy_trylock_atomic(u32 __user *pifutex,
 {
 	struct futex_q *top_waiter = NULL;
 	u32 curval;
-	int ret, vpid;
+	int ret;
 
 	if (get_futex_value_locked(&curval, pifutex))
 		return -EFAULT;
@@ -1325,13 +1311,11 @@ static int futex_proxy_trylock_atomic(u32 __user *pifutex,
 	 * the contended case or if set_waiters is 1.  The pi_state is returned
 	 * in ps in contended cases.
 	 */
-	vpid = task_pid_vnr(top_waiter->task);
 	ret = futex_lock_pi_atomic(pifutex, hb2, key2, ps, top_waiter->task,
 				   set_waiters);
-	if (ret == 1) {
+	if (ret == 1)
 		requeue_pi_wake_futex(top_waiter, key2, hb2);
-		return vpid;
-	}
+
 	return ret;
 }
 
@@ -1363,6 +1347,7 @@ static int futex_requeue(u32 __user *uaddr1, unsigned int flags,
 	struct futex_hash_bucket *hb1, *hb2;
 	struct plist_head *head1;
 	struct futex_q *this, *next;
+	u32 curval2;
 
 	if (requeue_pi) {
 		/*
@@ -1464,25 +1449,16 @@ retry_private:
 		 * At this point the top_waiter has either taken uaddr2 or is
 		 * waiting on it.  If the former, then the pi_state will not
 		 * exist yet, look it up one more time to ensure we have a
-		 * reference to it. If the lock was taken, ret contains the
-		 * vpid of the top waiter task.
+		 * reference to it.
 		 */
-		if (ret > 0) {
+		if (ret == 1) {
 			WARN_ON(pi_state);
 			drop_count++;
 			task_count++;
-			/*
-			 * If we acquired the lock, then the user
-			 * space value of uaddr2 should be vpid. It
-			 * cannot be changed by the top waiter as it
-			 * is blocked on hb2 lock if it tries to do
-			 * so. If something fiddled with it behind our
-			 * back the pi state lookup might unearth
-			 * it. So we rather use the known value than
-			 * rereading and handing potential crap to
-			 * lookup_pi_state.
-			 */
-			ret = lookup_pi_state(ret, hb2, &key2, &pi_state, NULL);
+			ret = get_futex_value_locked(&curval2, uaddr2);
+			if (!ret)
+				ret = lookup_pi_state(curval2, hb2, &key2,
+						      &pi_state);
 		}
 
 		switch (ret) {
