@@ -11,6 +11,10 @@ if [ $(grep -c "mount tmpfs tmpfs /storage mode=0050,uid=0,gid=1028" /tmp/ramdis
    sed -i "/mkdir \/mnt\/asec/i\ \ \ \ mount tmpfs tmpfs /storage mode=0050,uid=0,gid=1028" /tmp/ramdisk/init.rc
 fi
 
+if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ]; then
+   sed -i "s/setcon u:r:init:s0/setcon u:r:init:s0\n    setenforce 0/" /tmp/ramdisk/init.rc
+fi
+
 if [ $(grep -c "#seclabel u:r:install_recovery:s0" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/seclabel u:r:install_recovery:s0/#seclabel u:r:install_recovery:s0/" /tmp/ramdisk/init.rc
 fi
@@ -83,6 +87,12 @@ mv /tmp/ramdisk/fstab.orig /tmp/ramdisk/fstab.flo;
 fi;
 
 fi;
+
+if [ ! -f "/tmp/ramdisk/sepolicy.orig" ]; then
+mv /tmp/ramdisk/sepolicy /tmp/ramdisk/sepolicy.orig;
+fi;
+
+mv /tmp/sepolicy.tmp /tmp/ramdisk/sepolicy;
 
 #repack
 find . | cpio -o -H newc | gzip > /tmp/initrd.img
