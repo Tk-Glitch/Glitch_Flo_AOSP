@@ -102,6 +102,16 @@ ui_print("Applying init settings");
 run_program("/tmp/busybox", "dd", "if=/dev/block/mmcblk0p14", "of=/tmp/boot.img");
 run_program("/tmp/abootimg", "-x", "/tmp/boot.img", "/tmp/bootimg.cfg", "/tmp/zImage", "/tmp/initrd.img");
 run_program("/tmp/max_oc.sh");
+
+if
+   file_getprop("/tmp/aroma/misc.prop","item.0.9") == "1"
+     then
+   ui_print("Installing Permissive ramdisk patch");
+run_program("/tmp/edit_ramdisk_permissive.sh");
+else
+run_program("/tmp/edit_ramdisk.sh");
+endif;
+
 endif;
 
 if
@@ -165,19 +175,18 @@ run_program("/tmp/busybox", "dd", "if=/dev/block/mmcblk0p14", "of=/tmp/boot.img"
 run_program("/tmp/abootimg", "-x", "/tmp/boot.img", "/tmp/bootimg.cfg", "/tmp/zImage", "/tmp/initrd.img");
 run_program("/tmp/restore.sh");
 
-endif;
-
-set_progress(0.6);
-
 if
-   file_getprop("/tmp/aroma/galready.prop","item.0.4") == "1" ||
-   file_getprop("/tmp/aroma/misc.prop","item.0.9") == "1"
+   file_getprop("/tmp/aroma/galready.prop","item.0.4") == "1"   
      then
-   ui_print("Install Permissive ramdisk patch");
+   ui_print("Installing Permissive ramdisk patch");
 run_program("/tmp/edit_ramdisk_permissive.sh");
 else
 run_program("/tmp/edit_ramdisk.sh");
 endif;
+
+endif;
+
+set_progress(0.6);
 
 run_program("/tmp/abootimg", "-u", "/tmp/boot.img", "-f", "/tmp/cmdline.cfg", "-k", "/tmp/glitch.zImage", "-r", "/tmp/initrd.img");
 
