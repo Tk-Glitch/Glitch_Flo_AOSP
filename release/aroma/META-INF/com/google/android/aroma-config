@@ -34,7 +34,7 @@ ini_set("rom_name",             "Glitch kernel");
 ini_set("rom_version",          "N7-AOSP");
 ini_set("rom_author",           "Tk-Glitch");
 ini_set("rom_device",           "Nexus 7 (2013)");
-ini_set("rom_date",             "November 16 2014");
+ini_set("rom_date",             "December  3 2014");
 
 ini_set("force_colorspace","rgba");
 #ini_set("dp","6");
