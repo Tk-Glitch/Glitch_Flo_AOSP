@@ -28,6 +28,8 @@ struct iovec
 
 #ifdef __KERNEL__
 
+struct iov_iter;
+
 struct kvec {
 	void *iov_base; /* and that should *never* hold a userland pointer */
 	size_t iov_len;
@@ -51,6 +53,8 @@ static inline size_t iov_length(const struct iovec *iov, unsigned long nr_segs)
 }
 
 unsigned long iov_shorten(struct iovec *iov, unsigned long nr_segs, size_t to);
+unsigned long iov_iter_alignment(const struct iov_iter *i);
+int iov_iter_npages(const struct iov_iter *i, int maxpages);
 #endif
 
 #endif

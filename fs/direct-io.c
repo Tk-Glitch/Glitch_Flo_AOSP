@@ -97,6 +97,7 @@ struct dio_submit {
 	sector_t cur_page_block;	/* Where it starts */
 	loff_t cur_page_fs_offset;	/* Offset in file */
 
+	struct iov_iter *iter;
 	/*
 	 * Page fetching state. These variables belong to dio_refill_pages().
 	 */
@@ -126,6 +127,7 @@ struct dio {
 	spinlock_t bio_lock;		/* protects BIO fields below */
 	int page_errors;		/* errno from get_user_pages() */
 	int is_async;			/* is IO async ? */
+	bool defer_completion;          /* defer AIO completion to workqueue? */
 	int io_error;			/* IO error in completion path */
 	unsigned long refcount;		/* direct_io_worker() and bios */
 	struct bio *bio_list;		/* singly linked via bi_private */
@@ -551,6 +553,42 @@ static inline int dio_bio_reap(struct dio *dio, struct dio_submit *sdio)
 		sdio->reap_counter = 0;
 	}
 	return ret;
+}
+
+/*V3.15
+ * Create workqueue for deferred direct IO completions. We allocate the
+ * workqueue when it's first needed. This avoids creating workqueue for
+ * filesystems that don't need it and also allows us to create the workqueue
+ * late enough so the we can include s_id in the name of the workqueue.
+ */
+static int sb_init_dio_done_wq(struct super_block *sb)
+{
+	struct workqueue_struct *old;
+	struct workqueue_struct *wq = alloc_workqueue("dio/%s",
+						      WQ_MEM_RECLAIM, 0,
+						      sb->s_id);
+	if (!wq)
+		return -ENOMEM;
+	/*
+	 * This has to be atomic as more DIOs can race to create the workqueue
+	 */
+	old = cmpxchg(&sb->s_dio_done_wq, NULL, wq);
+	/* Someone created workqueue before us? Free ours... */
+	if (old)
+		destroy_workqueue(wq);
+	return 0;
+}
+
+static int dio_set_defer_completion(struct dio *dio)
+{
+	struct super_block *sb = dio->inode->i_sb;
+
+	if (dio->defer_completion)
+		return 0;
+	dio->defer_completion = true;
+	if (!sb->s_dio_done_wq)
+		return sb_init_dio_done_wq(sb);
+	return 0;
 }
 
 /*
@@ -1318,6 +1356,240 @@ out:
 	return retval;
 }
 
+/*
+ * V3.15
+ * This is a library function for use by filesystem drivers.
+ *
+ * The locking rules are governed by the flags parameter:
+ *  - if the flags value contains DIO_LOCKING we use a fancy locking
+ *    scheme for dumb filesystems.
+ *    For writes this function is called under i_mutex and returns with
+ *    i_mutex held, for reads, i_mutex is not held on entry, but it is
+ *    taken and dropped again before returning.
+ *  - if the flags value does NOT contain DIO_LOCKING we don't use any
+ *    internal locking but rather rely on the filesystem to synchronize
+ *    direct I/O reads/writes versus each other and truncate.
+ *
+ * To help with locking against truncate we incremented the i_dio_count
+ * counter before starting direct I/O, and decrement it once we are done.
+ * Truncate can wait for it to reach zero to provide exclusion.  It is
+ * expected that filesystem provide exclusion between new direct I/O
+ * and truncates.  For DIO_LOCKING filesystems this is done by i_mutex,
+ * but other filesystems need to take care of this on their own.
+ *
+ * NOTE: if you pass "sdio" to anything by pointer make sure that function
+ * is always inlined. Otherwise gcc is unable to split the structure into
+ * individual fields and will generate much worse code. This is important
+ * for the whole file.
+ */
+static inline ssize_t
+__do_blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
+	struct block_device *bdev, struct iov_iter *iter, loff_t offset, 
+	get_block_t get_block, dio_iodone_t end_io,
+	dio_submit_t submit_io,	int flags)
+{
+	unsigned i_blkbits = ACCESS_ONCE(inode->i_blkbits);
+	unsigned blkbits = i_blkbits;
+	unsigned blocksize_mask = (1 << blkbits) - 1;
+	ssize_t retval = -EINVAL;
+	loff_t end = offset + iov_iter_count(iter);
+	struct dio *dio;
+	struct dio_submit sdio = { 0, };
+	struct buffer_head map_bh = { 0, };
+	struct blk_plug plug;
+	unsigned long align = offset | iov_iter_alignment(iter);
+
+	if (rw & WRITE)
+		rw = WRITE_ODIRECT;
+
+	/*
+	 * Avoid references to bdev if not absolutely needed to give
+	 * the early prefetch in the caller enough time.
+	 */
+
+	if (align & blocksize_mask) {
+		if (bdev)
+			blkbits = blksize_bits(bdev_logical_block_size(bdev));
+		blocksize_mask = (1 << blkbits) - 1;
+		if (align & blocksize_mask)
+			goto out;
+	}
+
+	/* watch out for a 0 len io from a tricksy fs */
+	if (rw == READ && !iov_iter_count(iter))
+		return 0;
+
+	dio = kmem_cache_alloc(dio_cache, GFP_KERNEL);
+	retval = -ENOMEM;
+	if (!dio)
+		goto out;
+	/*
+	 * Believe it or not, zeroing out the page array caused a .5%
+	 * performance regression in a database benchmark.  So, we take
+	 * care to only zero out what's needed.
+	 */
+	memset(dio, 0, offsetof(struct dio, pages));
+
+	dio->flags = flags;
+	if (dio->flags & DIO_LOCKING) {
+		if (rw == READ) {
+			struct address_space *mapping =
+					iocb->ki_filp->f_mapping;
+
+			/* will be released by direct_io_worker */
+			mutex_lock(&inode->i_mutex);
+
+			retval = filemap_write_and_wait_range(mapping, offset,
+							      end - 1);
+			if (retval) {
+				mutex_unlock(&inode->i_mutex);
+				kmem_cache_free(dio_cache, dio);
+				goto out;
+			}
+		}
+	}
+
+	/*
+	 * For file extending writes updating i_size before data writeouts
+	 * complete can expose uninitialized blocks in dumb filesystems.
+	 * In that case we need to wait for I/O completion even if asked
+	 * for an asynchronous write.
+	 */
+	if (is_sync_kiocb(iocb))
+		dio->is_async = false;
+	else if (!(dio->flags & DIO_ASYNC_EXTEND) &&
+            (rw & WRITE) && end > i_size_read(inode))
+		dio->is_async = false;
+	else
+		dio->is_async = true;
+
+	dio->inode = inode;
+	dio->rw = rw;
+
+	/*
+	 * For AIO O_(D)SYNC writes we need to defer completions to a workqueue
+	 * so that we can call ->fsync.
+	 */
+	if (dio->is_async && (rw & WRITE) &&
+	    ((iocb->ki_filp->f_flags & O_DSYNC) ||
+	     IS_SYNC(iocb->ki_filp->f_mapping->host))) {
+		retval = dio_set_defer_completion(dio);
+		if (retval) {
+			/*
+			 * We grab i_mutex only for reads so we don't have
+			 * to release it here
+			 */
+			kmem_cache_free(dio_cache, dio);
+			goto out;
+		}
+	}
+
+	/*
+	 * Will be decremented at I/O completion time.
+	 */
+	atomic_inc(&inode->i_dio_count);
+
+	retval = 0;
+	sdio.blkbits = blkbits;
+	sdio.blkfactor = i_blkbits - blkbits;
+	sdio.block_in_file = offset >> blkbits;
+
+	sdio.get_block = get_block;
+	dio->end_io = end_io;
+	sdio.submit_io = submit_io;
+	sdio.final_block_in_bio = -1;
+	sdio.next_block_for_io = -1;
+
+	dio->iocb = iocb;
+	dio->i_size = i_size_read(inode);
+
+	spin_lock_init(&dio->bio_lock);
+	dio->refcount = 1;
+
+	sdio.iter = iter;
+	sdio.final_block_in_request =
+		(offset + iov_iter_count(iter)) >> blkbits;
+
+	/*
+	 * In case of non-aligned buffers, we may need 2 more
+	 * pages since we need to zero out first and last block.
+	 */
+	if (unlikely(sdio.blkfactor))
+		sdio.pages_in_io = 2;
+
+	sdio.pages_in_io += iov_iter_npages(iter, INT_MAX);
+
+	blk_start_plug(&plug);
+
+	retval = do_direct_IO(dio, &sdio, &map_bh);
+	if (retval)
+		dio_cleanup(dio, &sdio);
+
+	if (retval == -ENOTBLK) {
+		/*
+		 * The remaining part of the request will be
+		 * be handled by buffered I/O when we return
+		 */
+		retval = 0;
+	}
+	/*
+	 * There may be some unwritten disk at the end of a part-written
+	 * fs-block-sized block.  Go zero that now.
+	 */
+	dio_zero_block(dio, &sdio, 1, &map_bh);
+
+	if (sdio.cur_page) {
+		ssize_t ret2;
+
+		ret2 = dio_send_cur_page(dio, &sdio, &map_bh);
+		if (retval == 0)
+			retval = ret2;
+		page_cache_release(sdio.cur_page);
+		sdio.cur_page = NULL;
+	}
+	if (sdio.bio)
+		dio_bio_submit(dio, &sdio);
+
+	blk_finish_plug(&plug);
+
+	/*
+	 * It is possible that, we return short IO due to end of file.
+	 * In that case, we need to release all the pages we got hold on.
+	 */
+	dio_cleanup(dio, &sdio);
+
+	/*
+	 * All block lookups have been performed. For READ requests
+	 * we can let i_mutex go now that its achieved its purpose
+	 * of protecting us from looking up uninitialized blocks.
+	 */
+	if (rw == READ && (dio->flags & DIO_LOCKING))
+		mutex_unlock(&dio->inode->i_mutex);
+
+	/*
+	 * The only time we want to leave bios in flight is when a successful
+	 * partial aio read or full aio write have been setup.  In that case
+	 * bio completion will call aio_complete.  The only time it's safe to
+	 * call aio_complete is when we return -EIOCBQUEUED, so we key on that.
+	 * This had *better* be the only place that raises -EIOCBQUEUED.
+	 */
+	BUG_ON(retval == -EIOCBQUEUED);
+	if (dio->is_async && retval == 0 && dio->result &&
+	    ((rw == READ) || (dio->result == sdio.size)))
+		retval = -EIOCBQUEUED;
+
+	if (retval != -EIOCBQUEUED)
+		dio_await_completion(dio);
+
+	if (drop_refcount(dio) == 0) {
+		retval = dio_complete(dio, offset, retval, false);
+	} else
+		BUG_ON(retval != -EIOCBQUEUED);
+
+out:
+	return retval;
+}
+
 ssize_t
 __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 	struct block_device *bdev, const struct iovec *iov, loff_t offset,
@@ -1342,6 +1614,30 @@ __blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
 }
 
 EXPORT_SYMBOL(__blockdev_direct_IO);
+
+ssize_t
+____blockdev_direct_IO(int rw, struct kiocb *iocb, struct inode *inode,
+	struct block_device *bdev, struct iov_iter *iter, loff_t offset,
+	get_block_t get_block, dio_iodone_t end_io,
+	dio_submit_t submit_io,	int flags)
+{
+	/*
+	 * The block device state is needed in the end to finally
+	 * submit everything.  Since it's likely to be cache cold
+	 * prefetch it here as first thing to hide some of the
+	 * latency.
+	 *
+	 * Attempt to prefetch the pieces we likely need later.
+	 */
+	prefetch(&bdev->bd_disk->part_tbl);
+	prefetch(bdev->bd_queue);
+	prefetch((char *)bdev->bd_queue + SMP_CACHE_BYTES);
+
+	return __do_blockdev_direct_IO(rw, iocb, inode, bdev, iter, offset,
+				     get_block, end_io, submit_io, flags);
+}
+
+EXPORT_SYMBOL(____blockdev_direct_IO);
 
 static __init int dio_init(void)
 {

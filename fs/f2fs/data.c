@@ -632,8 +632,10 @@ static int __get_data_block(struct inode *inode, sector_t iblock,
 	if (check_extent_cache(inode, pgofs, bh_result))
 		goto out;
 
-	if (create)
+	if (create) {
+		f2fs_balance_fs(sbi);
 		f2fs_lock_op(sbi);
+	}
 
 	/* When reading holes, we need its node page */
 	set_new_dnode(&dn, inode, NULL, NULL, 0);
@@ -658,8 +660,7 @@ static int __get_data_block(struct inode *inode, sector_t iblock,
 		goto put_out;
 	}
 
-	end_offset = IS_INODE(dn.node_page) ?
-			ADDRS_PER_INODE(F2FS_I(inode)) : ADDRS_PER_BLOCK;
+	end_offset = ADDRS_PER_PAGE(dn.node_page, F2FS_I(inode));
 	bh_result->b_size = (((size_t)1) << blkbits);
 	dn.ofs_in_node++;
 	pgofs++;
@@ -681,8 +682,7 @@ get_next:
 		if (dn.data_blkaddr == NEW_ADDR && !fiemap)
 			goto put_out;
 
-		end_offset = IS_INODE(dn.node_page) ?
-			ADDRS_PER_INODE(F2FS_I(inode)) : ADDRS_PER_BLOCK;
+		end_offset = ADDRS_PER_PAGE(dn.node_page, F2FS_I(inode));
 	}
 
 	if (maxblocks > (bh_result->b_size >> blkbits)) {
@@ -922,6 +922,16 @@ skip_write:
 	return 0;
 }
 
+static void f2fs_write_failed(struct address_space *mapping, loff_t to)
+{
+	struct inode *inode = mapping->host;
+
+	if (to > inode->i_size) {
+		__truncate_pagecache(inode, inode->i_size);
+		truncate_blocks(inode, inode->i_size);
+	}
+}
+
 static int f2fs_write_begin(struct file *file, struct address_space *mapping,
 		loff_t pos, unsigned len, unsigned flags,
 		struct page **pagep, void **fsdata)
@@ -939,11 +949,13 @@ static int f2fs_write_begin(struct file *file, struct address_space *mapping,
 repeat:
 	err = f2fs_convert_inline_data(inode, pos + len);
 	if (err)
-		return err;
+		goto fail;
 
 	page = grab_cache_page_write_begin(mapping, index, flags);
-	if (!page)
-		return -ENOMEM;
+	if (!page) {
+		err = -ENOMEM;
+		goto fail;
+	}
 
 	/* to avoid latency during memory pressure */
 	unlock_page(page);
@@ -957,10 +969,9 @@ repeat:
 	set_new_dnode(&dn, inode, NULL, NULL, 0);
 	err = f2fs_reserve_block(&dn, index);
 	f2fs_unlock_op(sbi);
-
 	if (err) {
 		f2fs_put_page(page, 0);
-		return err;
+		goto fail;
 	}
 inline_data:
 	lock_page(page);
@@ -990,19 +1001,20 @@ inline_data:
 			err = f2fs_read_inline_data(inode, page);
 			if (err) {
 				page_cache_release(page);
-				return err;
+				goto fail;
 			}
 		} else {
 			err = f2fs_submit_page_bio(sbi, page, dn.data_blkaddr,
 							READ_SYNC);
 			if (err)
-				return err;
+				goto fail;
 		}
 
 		lock_page(page);
 		if (unlikely(!PageUptodate(page))) {
 			f2fs_put_page(page, 1);
-			return -EIO;
+			err = -EIO;
+			goto fail;
 		}
 		if (unlikely(page->mapping != mapping)) {
 			f2fs_put_page(page, 1);
@@ -1013,6 +1025,9 @@ out:
 	SetPageUptodate(page);
 	clear_cold_data(page);
 	return 0;
+fail:
+	f2fs_write_failed(mapping, pos + len);
+	return err;
 }
 
 static int f2fs_write_end(struct file *file,
@@ -1037,10 +1052,9 @@ static int f2fs_write_end(struct file *file,
 }
 
 static int check_direct_IO(struct inode *inode, int rw,
-		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+		struct iov_iter *iter, loff_t offset)
 {
 	unsigned blocksize_mask = inode->i_sb->s_blocksize - 1;
-	int i;
 
 	if (rw == READ)
 		return 0;
@@ -1048,30 +1062,35 @@ static int check_direct_IO(struct inode *inode, int rw,
 	if (offset & blocksize_mask)
 		return -EINVAL;
 
-	for (i = 0; i < nr_segs; i++)
-		if (iov[i].iov_len & blocksize_mask)
-			return -EINVAL;
+	if (iov_iter_alignment(iter) & blocksize_mask)
+		return -EINVAL;
 	return 0;
 }
 
 static ssize_t f2fs_direct_IO(int rw, struct kiocb *iocb,
-		const struct iovec *iov, loff_t offset, unsigned long nr_segs)
+	       struct iov_iter *iter, loff_t offset)
 {
 	struct file *file = iocb->ki_filp;
-	struct inode *inode = file->f_mapping->host;
+	struct address_space *mapping = file->f_mapping;
+	struct inode *inode = mapping->host;
+	size_t count = iov_iter_count(iter);
+	int err;
 
 	/* Let buffer I/O handle the inline data case. */
 	if (f2fs_has_inline_data(inode))
 		return 0;
 
-	if (check_direct_IO(inode, rw, iov, offset, nr_segs))
+	if (check_direct_IO(inode, rw, iter, offset))
 		return 0;
 
 	/* clear fsync mark to recover these blocks */
 	fsync_mark_clear(F2FS_SB(inode->i_sb), inode->i_ino);
 
-	return blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
-							get_data_block);
+	err = ___blockdev_direct_IO(rw, iocb, inode, iter, offset,
+				  get_data_block);
+	if (err < 0 && (rw & WRITE))
+		f2fs_write_failed(mapping, offset + count);
+	return err;
 }
 
 static void f2fs_invalidate_data_page(struct page *page, unsigned long offset)
@@ -1126,6 +1145,6 @@ const struct address_space_operations f2fs_dblock_aops = {
 	.set_page_dirty	= f2fs_set_data_page_dirty,
 	.invalidatepage	= f2fs_invalidate_data_page,
 	.releasepage	= f2fs_release_data_page,
-	.direct_IO	= f2fs_direct_IO,
+	.__direct_IO	= f2fs_direct_IO,
 	.bmap		= f2fs_bmap,
 };
