@@ -20,8 +20,7 @@
 # (default path is "kernel_tree_folder/../toolchains")
 # -------linux-x86
 	#export CROSS_PREFIX="arm-eabi-4.6/bin/arm-eabi-"
-	#export CROSS_PREFIX="sabermod-androideabi-4.8.3/bin/arm-linux-androideabi-"
-	export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.2-2014.09/bin/arm-cortex_a15-linux-gnueabihf-"
+	export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.02/bin/arm-cortex_a15-linux-gnueabihf-"
 
 # -------darwin-x86
 	#export CROSS_PREFIX=""

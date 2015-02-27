@@ -21,7 +21,6 @@
 #include <linux/rwsem.h>
 #include <linux/f2fs_fs.h>
 #include <linux/security.h>
-#include <linux/posix_acl_xattr.h>
 #include "f2fs.h"
 #include "xattr.h"
 
@@ -83,7 +82,7 @@ static int f2fs_xattr_generic_get(struct dentry *dentry, const char *name,
 	}
 	if (strcmp(name, "") == 0)
 		return -EINVAL;
-	return f2fs_getxattr(dentry->d_inode, type, name, buffer, size);
+	return f2fs_getxattr(dentry->d_inode, type, name, buffer, size, NULL);
 }
 
 static int f2fs_xattr_generic_set(struct dentry *dentry, const char *name,
@@ -132,11 +131,10 @@ static int f2fs_xattr_advise_get(struct dentry *dentry, const char *name,
 {
 	struct inode *inode = dentry->d_inode;
 
-	if (!name || strcmp(name, "") != 0)
+	if (strcmp(name, "") != 0)
 		return -EINVAL;
 
-	if (buffer)
-		*((char *)buffer) = F2FS_I(inode)->i_advise;
+	*((char *)buffer) = F2FS_I(inode)->i_advise;
 	return sizeof(char);
 }
 
@@ -145,14 +143,14 @@ static int f2fs_xattr_advise_set(struct dentry *dentry, const char *name,
 {
 	struct inode *inode = dentry->d_inode;
 
-	if (!name || strcmp(name, "") != 0)
+	if (strcmp(name, "") != 0)
 		return -EINVAL;
 	if (!inode_owner_or_capable(inode))
 		return -EPERM;
 	if (value == NULL)
 		return -EINVAL;
 
-	F2FS_I(inode)->i_advise = *(char *)value;
+	F2FS_I(inode)->i_advise |= *(char *)value;
 	return 0;
 }
 
@@ -216,8 +214,8 @@ const struct xattr_handler f2fs_xattr_security_handler = {
 static const struct xattr_handler *f2fs_xattr_handler_map[] = {
 	[F2FS_XATTR_INDEX_USER] = &f2fs_xattr_user_handler,
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
-	[F2FS_XATTR_INDEX_POSIX_ACL_ACCESS] = &posix_acl_access_xattr_handler,
-	[F2FS_XATTR_INDEX_POSIX_ACL_DEFAULT] = &posix_acl_default_xattr_handler,
+	[F2FS_XATTR_INDEX_POSIX_ACL_ACCESS] = &f2fs_xattr_acl_access_handler,
+	[F2FS_XATTR_INDEX_POSIX_ACL_DEFAULT] = &f2fs_xattr_acl_default_handler,
 #endif
 	[F2FS_XATTR_INDEX_TRUSTED] = &f2fs_xattr_trusted_handler,
 #ifdef CONFIG_F2FS_FS_SECURITY
@@ -229,8 +227,8 @@ static const struct xattr_handler *f2fs_xattr_handler_map[] = {
 const struct xattr_handler *f2fs_xattr_handlers[] = {
 	&f2fs_xattr_user_handler,
 #ifdef CONFIG_F2FS_FS_POSIX_ACL
-	&posix_acl_access_xattr_handler,
-	&posix_acl_default_xattr_handler,
+	&f2fs_xattr_acl_access_handler,
+	&f2fs_xattr_acl_default_handler,
 #endif
 	&f2fs_xattr_trusted_handler,
 #ifdef CONFIG_F2FS_FS_SECURITY
@@ -267,7 +265,7 @@ static struct f2fs_xattr_entry *__find_xattr(void *base_addr, int index,
 
 static void *read_all_xattrs(struct inode *inode, struct page *ipage)
 {
-	struct f2fs_sb_info *sbi = F2FS_SB(inode->i_sb);
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	struct f2fs_xattr_header *header;
 	size_t size = PAGE_SIZE, inline_size = 0;
 	void *txattr_addr;
@@ -326,7 +324,7 @@ fail:
 static inline int write_all_xattrs(struct inode *inode, __u32 hsize,
 				void *txattr_addr, struct page *ipage)
 {
-	struct f2fs_sb_info *sbi = F2FS_SB(inode->i_sb);
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	size_t inline_size = 0;
 	void *xattr_addr;
 	struct page *xpage;
@@ -374,7 +372,7 @@ static inline int write_all_xattrs(struct inode *inode, __u32 hsize,
 			alloc_nid_failed(sbi, new_nid);
 			return PTR_ERR(xpage);
 		}
-		f2fs_bug_on(new_nid);
+		f2fs_bug_on(sbi, new_nid);
 		f2fs_wait_on_page_writeback(xpage, NODE);
 	} else {
 		struct dnode_of_data dn;
@@ -399,7 +397,7 @@ static inline int write_all_xattrs(struct inode *inode, __u32 hsize,
 }
 
 int f2fs_getxattr(struct inode *inode, int index, const char *name,
-		void *buffer, size_t buffer_size)
+		void *buffer, size_t buffer_size, struct page *ipage)
 {
 	struct f2fs_xattr_entry *entry;
 	void *base_addr;
@@ -408,11 +406,12 @@ int f2fs_getxattr(struct inode *inode, int index, const char *name,
 
 	if (name == NULL)
 		return -EINVAL;
+
 	len = strlen(name);
 	if (len > F2FS_NAME_LEN)
 		return -ERANGE;
 
-	base_addr = read_all_xattrs(inode, NULL);
+	base_addr = read_all_xattrs(inode, ipage);
 	if (!base_addr)
 		return -ENOMEM;
 
@@ -518,7 +517,6 @@ static int __f2fs_setxattr(struct inode *inode, int index,
 	}
 
 	last = here;
-
 	while (!IS_XATTR_LAST_ENTRY(last))
 		last = XATTR_NEXT_ENTRY(last);
 
@@ -529,7 +527,7 @@ static int __f2fs_setxattr(struct inode *inode, int index,
 		int free;
 		/*
 		 * If value is NULL, it is remove operation.
-		 * In case of update operation, we caculate free.
+		 * In case of update operation, we calculate free.
 		 */
 		free = MIN_OFFSET(inode) - ((char *)last - (char *)base_addr);
 		if (found)
@@ -597,7 +595,7 @@ int f2fs_setxattr(struct inode *inode, int index, const char *name,
 				const void *value, size_t size,
 				struct page *ipage, int flags)
 {
-	struct f2fs_sb_info *sbi = F2FS_SB(inode->i_sb);
+	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
 	int err;
 
 	/* this case is only from init_inode_metadata */
