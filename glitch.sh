@@ -12,7 +12,7 @@
 
 # Device options :
 	target_name="N7" #defines the flashable zip device name
-	target_variant="" #defines the flashable zip additional name for variants
+	target_variant="-CM" #defines the flashable zip additional name for variants
 	target_device="N7-2013" #defines the name of device-related folders (can be the same as $target_name)
 	target_defconfig="Glitch_flo_defconfig" #defines the config to use for the build
 
@@ -20,6 +20,7 @@
 # (default path is "kernel_tree_folder/../toolchains")
 # -------linux-x86
 	#export CROSS_PREFIX="arm-eabi-4.6/bin/arm-eabi-"
+	#export CROSS_PREFIX="sabermod-androideabi-4.8.3/bin/arm-linux-androideabi-"
 	export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.02/bin/arm-cortex_a15-linux-gnueabihf-"
 
 # -------darwin-x86
@@ -81,11 +82,12 @@ build ()
 
 . $KERNEL_DIR/../rev
 
-counter=$((counter + 1))
+#Variant has to use the same rev number as base
+#counter=$((counter + 1))
 
 echo "-----------------------------------------"
 echo "Write release number in config (r"$counter")"
-releasenumber='CONFIG_LOCALVERSION="-Glitch-N7-AOSP-r'$counter'"'
+releasenumber='CONFIG_LOCALVERSION="-Glitch-N7-CM-r'$counter'"'
 cp arch/arm/configs/$target_defconfig tmp_$target_defconfig;
 sed "43s/.*/$releasenumber/g" tmp_$target_defconfig > release_$target_defconfig;
 mv release_$target_defconfig arch/arm/configs/release_$target_defconfig
@@ -128,7 +130,8 @@ REL=Glitch-$target_name-r$counter$target_variant.zip
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
-echo counter=$counter > $KERNEL_DIR/../rev;
+#Variant has to use the same rev number as base
+#echo counter=$counter > $KERNEL_DIR/../rev;
 
 rm boot/glitch.zImage
 rm -r system/lib/modules/*
