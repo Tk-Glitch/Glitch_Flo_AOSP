@@ -9,6 +9,11 @@ fi
 
 echo $(date) >> $KERNEL_LOGFILE;
 
+#Permissive mode
+if [ "`grep PERMISSIVE=1 $KERNEL_CONF`" ]; then
+  echo 0  > /sys/fs/selinux/enforce;
+fi
+
 #Touch Firmware
 TFW="`cat /sys/devices/i2c-3/3-0010/vendor`"
 echo TouchFW: $TFW >> $KERNEL_LOGFILE;

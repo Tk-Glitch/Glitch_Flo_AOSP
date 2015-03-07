@@ -175,6 +175,16 @@ else
   echo "MC_POWERSAVE=0" >> $CONFIGFILE;
 fi
 
+#Permissive Selinux
+PERMISSIVE=`grep "item.0.8" /tmp/aroma/misc.prop | cut -d '=' -f2`
+echo -e "\n\n##### Enforce Selinux #####\n# 0 for default" >> $CONFIGFILE
+echo -e "# 1 to enable permissive Selinux\n" >> $CONFIGFILE
+if [ "$PERMISSIVE" = 1 ]; then
+  echo "PERMISSIVE=1" >> $CONFIGFILE;
+else
+  echo "PERMISSIVE=0" >> $CONFIGFILE;
+fi
+
 #THERMAL
 THERM=`grep selected.1 /tmp/aroma/nrg.prop | cut -d '=' -f2`
 echo -e "\n\n##### Thermal Settings #####\n# 0 for default thermal throttling" >> $CONFIGFILE
