@@ -47,47 +47,23 @@ SYSTEM_F2FS=$?
 
 #Cache partition
 if [ $CACHE_F2FS -eq 0 ]; then
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/cache       /cache         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache       \/cache         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache      \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait/' /tmp/ramdisk/fstab.flo
 else
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/cache       /cache         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache      \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache       \/cache         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check/' /tmp/ramdisk/fstab.flo
 fi;
 
 #Data partition
 if [ $DATA_F2FS -eq 0 ]; then
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/userdata       /data         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata       \/data         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata      \/data          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
 else
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/userdata       /data         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata      \/data          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata       \/data         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
 fi;
 
 #System partition
 if [ $SYSTEM_F2FS -eq 0 ]; then
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/system       /system         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system      \/system          f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait/' /tmp/ramdisk/fstab.flo
 else
-if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/system       /system         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
-   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system      \/system          f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
-/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait
-/" /tmp/ramdisk/init.rc
-fi
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait/' /tmp/ramdisk/fstab.flo
 fi;
 
 #repack
