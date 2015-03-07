@@ -78,15 +78,6 @@ endif;
 if
    file_getprop("/tmp/aroma/misc.prop","item.0.7") == "1"
      then
-   ui_print("Replacing wlan firmware");
-package_extract_dir("wifi_mod", "/system");
-set_perm_recursive(0, 0, 0644, 0644, "/system/etc/wifi/WCNSS_qcom_cfg.ini");
-set_perm_recursive(0, 0, 0644, 0644, "/system/vendor/firmware/wlan/prima/WCNSS_cfg.dat");
-endif;
-
-if
-   file_getprop("/tmp/aroma/misc.prop","item.0.8") == "1"
-     then
    ui_print("Installing PIE patch");
 package_extract_dir("pie_patch", "/system");
 set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/linker");
@@ -104,7 +95,7 @@ run_program("/tmp/abootimg", "-x", "/tmp/boot.img", "/tmp/bootimg.cfg", "/tmp/zI
 run_program("/tmp/max_oc.sh");
 
 if
-   file_getprop("/tmp/aroma/misc.prop","item.0.9") == "1"
+   file_getprop("/tmp/aroma/misc.prop","item.0.8") == "1"
      then
    ui_print("Installing Permissive ramdisk patch");
 run_program("/tmp/edit_ramdisk_permissive.sh");
@@ -141,15 +132,6 @@ endif;
 if
    file_getprop("/tmp/aroma/galready.prop","item.0.2") == "1"
      then
-   ui_print("Replacing wlan firmware");
-package_extract_dir("wifi_mod", "/system");
-set_perm_recursive(0, 0, 0644, 0644, "/system/etc/wifi/WCNSS_qcom_cfg.ini");
-set_perm_recursive(0, 0, 0644, 0644, "/system/vendor/firmware/wlan/prima/WCNSS_cfg.dat");
-endif;
-
-if
-   file_getprop("/tmp/aroma/galready.prop","item.0.3") == "1"
-     then
    ui_print("Installing PIE patch");
 package_extract_dir("pie_patch", "/system");
 set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/linker");
@@ -176,7 +158,7 @@ run_program("/tmp/abootimg", "-x", "/tmp/boot.img", "/tmp/bootimg.cfg", "/tmp/zI
 run_program("/tmp/restore.sh");
 
 if
-   file_getprop("/tmp/aroma/galready.prop","item.0.4") == "1"   
+   file_getprop("/tmp/aroma/galready.prop","item.0.3") == "1"   
      then
    ui_print("Installing Permissive ramdisk patch");
 run_program("/tmp/edit_ramdisk_permissive.sh");

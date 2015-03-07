@@ -7,10 +7,6 @@ gunzip -c /tmp/ramdisk/initrd.gz | cpio -i
 rm /tmp/ramdisk/initrd.gz
 rm /tmp/initrd.img
 
-if [ $(grep -c "mount tmpfs tmpfs /storage mode=0050,uid=0,gid=1028" /tmp/ramdisk/init.rc) == 0 ]; then
-   sed -i "/mkdir \/mnt\/asec/i\ \ \ \ mount tmpfs tmpfs /storage mode=0050,uid=0,gid=1028" /tmp/ramdisk/init.rc
-fi
-
 if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/setcon u:r:init:s0/setcon u:r:init:s0\n    setenforce 0/" /tmp/ramdisk/init.rc
 fi
@@ -34,15 +30,10 @@ sed -i '/\/sys\/devices\/system\/cpu\/cpu1\/cpufreq\/scaling_governor/d' /tmp/ra
 sed -i '/\/sys\/devices\/system\/cpu\/cpu2\/cpufreq\/scaling_governor/d' /tmp/ramdisk/init.flo.rc
 sed -i '/\/sys\/devices\/system\/cpu\/cpu3\/cpufreq\/scaling_governor/d' /tmp/ramdisk/init.flo.rc
 
-#add line for CIFs
-tmpfs=$(find /tmp/ramdisk/init.rc -type f | xargs grep -oh "mount tmpfs /storage mode=050,uid=0,gid=1028");
-if [ "$tmpfs" != 'mount tmpfs /storage mode=050,uid=0,gid=1028' ]; then
-	echo "CIF hack found!";
-else
-sed '/mkdir /storage 0050 root sdcard_r/a \
->     mount tmpfs /storage mode=0050,uid=0,gid=1028' /tmp/ramdisk/init.flo.rc;
-	echo "CIF hack added";
-fi
+#backup current fstab
+if [ ! -f "/tmp/ramdisk/fstab.orig" ]; then
+cp /tmp/ramdisk/fstab.flo /tmp/ramdisk/fstab.orig;
+fi;
 
 #Check for F2FS and change fstab accordingly in ramdisk
 mount /cache 2> /dev/null
@@ -56,36 +47,49 @@ DATA_F2FS=$?
 mount | grep -q 'system type f2fs'
 SYSTEM_F2FS=$?
 
-if [ $CACHE_F2FS -eq 0 ] || [ $DATA_F2FS -eq 0 ] || [ $SYSTEM_F2FS -eq 0 ]; then
-
+#Cache partition
 if [ $CACHE_F2FS -eq 0 ]; then
-	sed -i 's,#CACHE_ISF2FS,,' /tmp/fstab.tmp;
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/cache       /cache         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache       \/cache         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache      \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
+/" /tmp/ramdisk/init.rc
+fi
 else
-	sed -i 's,#CACHE_ISEXT4,,' /tmp/fstab.tmp;
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/cache       /cache         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache      \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache       \/cache         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check
+/" /tmp/ramdisk/init.rc
+fi
 fi;
+
+#Data partition
 if [ $DATA_F2FS -eq 0 ]; then
-	sed -i 's,#DATA_ISF2FS,,' /tmp/fstab.tmp;
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/userdata       /data         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata       \/data         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata      \/data          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
+/" /tmp/ramdisk/init.rc
+fi
 else
-	sed -i 's,#DATA_ISEXT4,,' /tmp/fstab.tmp;
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/userdata       /data         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata      \/data          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata       \/data         ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=/dev/block/platform/msm_sdcc.1/by-name/metadata
+/" /tmp/ramdisk/init.rc
+fi
 fi;
+
+#System partition
 if [ $SYSTEM_F2FS -eq 0 ]; then
-	sed -i 's,#SYS_ISF2FS,,' /tmp/fstab.tmp;
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/system       /system         f2fs" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system      \/system          f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
+/" /tmp/ramdisk/init.rc
+fi
 else
-	sed -i 's,#SYS_ISEXT4,,' /tmp/fstab.tmp;
-fi;
-
-if [ ! -f "/tmp/ramdisk/fstab.orig" ]; then
-mv /tmp/ramdisk/fstab.flo /tmp/ramdisk/fstab.orig;
-fi;
-
-mv /tmp/fstab.tmp /tmp/ramdisk/fstab.flo;
-
-else
-
-if [ -f "/tmp/ramdisk/fstab.orig" ]; then
-mv /tmp/ramdisk/fstab.orig /tmp/ramdisk/fstab.flo;
-fi;
-
+if [ $(grep -c "/dev/block/platform/msm_sdcc.1/by-name/system       /system         ext4" /tmp/ramdisk/fstab.flo) == 0 ]; then
+   sed -i "s/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system      \/system          f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait
+/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait
+/" /tmp/ramdisk/init.rc
+fi
 fi;
 
 if [ ! -f "/tmp/ramdisk/sepolicy.orig" ]; then
