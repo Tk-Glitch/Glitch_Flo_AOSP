@@ -357,7 +357,6 @@ checkbox(
   "Backlight dimmer","Lower screen brightness",0,
   "Enable max screen off frequency","",0,
   "Enable max MC power savings","",0,
-  "Override default wlan firmware","Fixes wifi on some roms",0,
   "Install PIE bypass patch","If you don't know what it is, don't use it !",0,
   "Install Permissive SELinux patch","Enables complete root support, but lowers security",0
 );
@@ -388,7 +387,6 @@ alert(
 checkbox(
   "Glitched already ?","You may want to restore your settings.\n","@personalize","galready.prop",
   "Restore your settings from SDcard","If you have a glitch-settings.conf backup from a previous installation (on SDcard root).",0,
-  "Override default wlan firmware","Replaces your rom's wlan firmware to fix wifi. Unneeded if wifi works as is.",0,
   "Install PIE bypass patch","If you don't know what it is, don't use it !",0,
   "Install Permissive SELinux patch","Enables complete root support, but lowers security",0
 );

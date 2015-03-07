@@ -124,7 +124,7 @@ cd release/aroma
 mkdir -p $KERNEL_DIR/release/$target_device
 REL=Glitch-$target_name-r$counter$target_variant.zip
 
-	zip -q -r ${REL} boot config META-INF system wifi_mod pie_patch
+	zip -q -r ${REL} boot config META-INF system pie_patch
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
