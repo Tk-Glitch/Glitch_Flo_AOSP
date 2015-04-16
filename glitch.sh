@@ -102,13 +102,29 @@ rm -f $KERNEL_DIR/tmp_$target_defconfig
 
 echo "-----------------------------------------"
 echo "copying modules and zImage"
+
+#Aroma
 mkdir -p $KERNEL_DIR/release/aroma/system/lib/modules/
+#Restore
+mkdir -p $KERNEL_DIR/release/restore/system/lib/modules/
+
 cd $target_dir
+
+#Aroma
 find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/aroma/system/lib/modules/ \;
 "$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/aroma/system/lib/modules/*
-cd $KERNEL_DIR
-mv $target_dir/arch/arm/boot/zImage $KERNEL_DIR/release/aroma/boot/glitch.zImage
+#Restore
+find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/restore/system/lib/modules/ \;
+"$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/restore/system/lib/modules/*
 
+cd $KERNEL_DIR
+
+#Aroma
+cp $target_dir/arch/arm/boot/zImage $KERNEL_DIR/release/aroma/boot/glitch.zImage
+#Restore
+cp $target_dir/arch/arm/boot/zImage $KERNEL_DIR/release/restore/boot/glitch.zImage
+
+#Aroma
 cd $KERNEL_DIR
 rm -f arch/arm/configs/release_$target_defconfig
 echo "-----------------------------------------"
@@ -119,22 +135,36 @@ mv ./aroma-config.tmp ./release/aroma/META-INF/com/google/android/aroma-config
 
 echo "-----------------------------------------"
 echo "packaging it up"
-cd release/aroma
 
 mkdir -p $KERNEL_DIR/release/$target_device
-REL=Glitch-$target_name-r$counter$target_variant.zip
+
+#Aroma
+cd $KERNEL_DIR/release/aroma
+REL=Glitch-$target_name-r$counter$target_variant-full.zip
 
 	zip -q -r ${REL} boot config META-INF system pie_patch
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
-echo counter=$counter > $KERNEL_DIR/../rev;
+rm boot/glitch.zImage
+rm -fr system/lib/modules/*
+
+#Restore
+cd $KERNEL_DIR/release/restore
+REL2=Glitch-$target_name-r$counter$target_variant-restore.zip
+
+	zip -q -r ${REL2} boot config META-INF system
+	#sha256sum ${REL} > ${REL}.sha256sum
+	mv ${REL2}* $KERNEL_DIR/release/$target_device/
 
 rm boot/glitch.zImage
-rm -r system/lib/modules/*
+rm -fr system/lib/modules/*
+
+echo counter=$counter > $KERNEL_DIR/../rev;
 
 echo "-----------------------------------------"
 echo ${REL}
+echo ${REL2}
 }
     
 setup
