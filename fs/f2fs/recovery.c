@@ -92,7 +92,7 @@ static int recover_dentry(struct inode *inode, struct page *ipage)
 		goto out_err;
 	}
 retry:
-	de = f2fs_find_entry(dir, &name, &page);
+	de = f2fs_find_entry(dir, &name, &page, 0);
 	if (de && inode->i_ino == le32_to_cpu(de->ino)) {
 		clear_inode_flag(F2FS_I(inode), FI_INC_LINK);
 		goto out_unmap_put;
@@ -170,15 +170,13 @@ static int find_fsync_dnodes(struct f2fs_sb_info *sbi, struct list_head *head)
 	curseg = CURSEG_I(sbi, CURSEG_WARM_NODE);
 	blkaddr = NEXT_FREE_BLKADDR(sbi, curseg);
 
-	ra_meta_pages(sbi, blkaddr, 1, META_POR);
-
 	while (1) {
 		struct fsync_inode_entry *entry;
 
 		if (blkaddr < MAIN_BLKADDR(sbi) || blkaddr >= MAX_BLKADDR(sbi))
 			return 0;
 
-		page = get_meta_page(sbi, blkaddr);
+		page = get_meta_page_ra(sbi, blkaddr);
 
 		if (cp_ver != cpver_of_node(page))
 			break;
@@ -229,8 +227,6 @@ next:
 		/* check next segment */
 		blkaddr = next_blkaddr_of_node(page);
 		f2fs_put_page(page, 1);
-
-		ra_meta_pages_cond(sbi, blkaddr);
 	}
 	f2fs_put_page(page, 1);
 	return err;
@@ -396,8 +392,7 @@ static int do_recover_data(struct f2fs_sb_info *sbi, struct inode *inode,
 
 			/* write dummy data page */
 			recover_data_page(sbi, NULL, &sum, src, dest);
-			dn.data_blkaddr = dest;
-			update_extent_cache(&dn);
+			update_extent_cache(dest, &dn);
 			recovered++;
 		}
 		dn.ofs_in_node++;
@@ -441,9 +436,7 @@ static int recover_data(struct f2fs_sb_info *sbi,
 		if (blkaddr < MAIN_BLKADDR(sbi) || blkaddr >= MAX_BLKADDR(sbi))
 			break;
 
-		ra_meta_pages_cond(sbi, blkaddr);
-
-		page = get_meta_page(sbi, blkaddr);
+		page = get_meta_page_ra(sbi, blkaddr);
 
 		if (cp_ver != cpver_of_node(page)) {
 			f2fs_put_page(page, 1);

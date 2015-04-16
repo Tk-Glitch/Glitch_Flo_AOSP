@@ -35,12 +35,10 @@ struct f2fs_gc_kthread {
 	unsigned int gc_idle;
 };
 
-struct gc_inode_list {
-	struct list_head ilist;
-	struct radix_tree_root iroot;
+struct inode_entry {
+	struct list_head list;
+	struct inode *inode;
 };
-
-extern struct kmem_cache *inode_entry_slab;
 
 /*
  * inline functions
