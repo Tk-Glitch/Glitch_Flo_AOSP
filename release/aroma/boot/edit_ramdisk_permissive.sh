@@ -49,30 +49,26 @@ SYSTEM_F2FS=$?
 
 #Cache partition
 if [ $CACHE_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait/' /tmp/ramdisk/fstab.flo
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          f2fs    noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,errors=recover    wait,check/' /tmp/ramdisk/fstab.flo
 else
 sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check/' /tmp/ramdisk/fstab.flo
 fi;
 
 #Data partition
 if [ $DATA_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           f2fs    noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           f2fs    noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,errors=recover    wait,check,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
 else
 sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           ext4    noatime,nosuid,nodev,barrier=1,data=ordered,noauto_da_alloc,errors=panic    wait,check,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
 fi;
 
 #System partition
 if [ $SYSTEM_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         f2fs    ro,noatime,nosuid,nodev,discard,nodiratime,inline_xattr,errors=recover    wait/' /tmp/ramdisk/fstab.flo
+sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         f2fs    ro,noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,errors=recover    wait/' /tmp/ramdisk/fstab.flo
 else
 sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait/' /tmp/ramdisk/fstab.flo
 fi;
 
-if [ ! -f "/tmp/ramdisk/sepolicy.orig" ]; then
-mv /tmp/ramdisk/sepolicy /tmp/ramdisk/sepolicy.orig;
-fi;
-
-mv /tmp/sepolicy.tmp /tmp/ramdisk/sepolicy;
+#mv /tmp/sepolicy.tmp /tmp/ramdisk/sepolicy;
 
 #repack
 find . | cpio -o -H newc | gzip > /tmp/initrd.img
