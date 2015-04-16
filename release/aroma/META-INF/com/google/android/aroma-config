@@ -43,8 +43,7 @@ fontresload( "0", "ttf/Roboto-Regular.ttf", "12" );
 fontresload( "1", "ttf/Roboto-Regular.ttf", "18" ); 
 theme("miui4");
 
-splash(2000, "glitch");
-
+splash(1000, "glitch");
 
 viewbox(
     "Welcome",
