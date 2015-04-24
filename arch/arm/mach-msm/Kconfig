@@ -2640,6 +2640,12 @@ config MSM_CPU_PWRCTL
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
 
+config HAS_MACH_MEMUTILS
+	default y
+	bool "Motorola MSM mcmcpy enhancements"
+	help
+	  Faster memcpy performance for Krait
+
 config FORCE_FAST_CHARGE
 	bool "Force AC charge mode at will"
 	default y
