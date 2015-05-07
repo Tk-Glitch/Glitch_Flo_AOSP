@@ -53,6 +53,9 @@ echo io scheduler: sio >> $KERNEL_LOGFILE;
 elif [ "`grep IOSCHED=6 $KERNEL_CONF`" ]; then
 echo "noop" > /sys/block/mmcblk0/queue/scheduler;
 echo io scheduler: noop >> $KERNEL_LOGFILE;
+elif [ "`grep IOSCHED=7 $KERNEL_CONF`" ]; then
+echo "bfq" > /sys/block/mmcblk0/queue/scheduler;
+echo io scheduler: BFQ >> $KERNEL_LOGFILE;
 fi
 
 #Read-ahead
@@ -108,29 +111,6 @@ else
   echo Qualcomm MPdecision enabled >> $KERNEL_LOGFILE;
 fi
 
-#Set Wake Gestures
-if [ "`grep WG=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/wake_gestures
-  echo Wake gestures enabled >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/wake_gestures
-  echo Wake gestures disabled >> $KERNEL_LOGFILE;
-fi
-
-#Set S2W
-S2W="`grep S2W $KERNEL_CONF | cut -d '=' -f2`"
-  echo $S2W > /sys/android_touch/sweep2wake
-  echo Sweep2wake $S2W >> $KERNEL_LOGFILE;
-
-#Set S2W SHORTSWEEP
-if [ "`grep SHORTSWEEP=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/shortsweep;
-  echo Sweep2wake shortsweep enabled >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/shortsweep;
-  echo Sweep2wake shortsweep disabled >> $KERNEL_LOGFILE;
-fi
-
 #Set DOUBLETAP2WAKE
 if [ "`grep DT2W=1 $KERNEL_CONF`" ]; then
   echo 1 > /sys/android_touch/doubletap2wake;
@@ -138,49 +118,6 @@ if [ "`grep DT2W=1 $KERNEL_CONF`" ]; then
 else
   echo 0 > /sys/android_touch/doubletap2wake;
   echo DoubleTap2Wake disabled >> $KERNEL_LOGFILE;
-fi
-
-#Set S2W/DT2W Power key toggle
-if [ "`grep PWR_KEY=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/pwrkey_suspend;
-  echo "Power key toggle for S2W/DT2W enabled" >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/pwrkey_suspend;
-  echo "Power key toggle for S2W/DT2W disabled" >> $KERNEL_LOGFILE;
-fi
-
-#Set S2W/DT2W Magnetic cover toggle
-if [ "`grep LID_SUS=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/lid_suspend;
-  echo "Magnetic cover toggle for S2W/DT2W enabled" >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/lid_suspend;
-  echo "Magnetic cover toggle for S2W/DT2W disabled" >> $KERNEL_LOGFILE;
-fi
-
-#Set S2W/DT2W Timeout
-TIMEOUT=`grep "TIMEOUT" $KERNEL_CONF | cut -d '=' -f2`
-echo $TIMEOUT > /sys/android_touch/wake_timeout
-echo S2W/DT2W Timeout\: $TIMEOUT >> $KERNEL_LOGFILE;
-
-#Set S2S
-if [ "`grep S2S=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/sweep2sleep
-  echo Sweep2sleep enabled >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/sweep2sleep
-  echo Sweep2sleep disabled >> $KERNEL_LOGFILE;
-fi
-
-#Set S2S ORIENTATION
-if [ "`grep ORIENTATION=1 $KERNEL_CONF`" ]; then
-  echo 1 > /sys/android_touch/orientation;
-  echo Disabled sweep2sleep in landscape mode >> $KERNEL_LOGFILE;
-elif [ "`grep ORIENTATION=2 $KERNEL_CONF`" ]; then
-  echo 2 > /sys/android_touch/orientation;
-  echo Disabled sweep2sleep in portrait mode >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/android_touch/orientation;
 fi
 
 #Set Magnetic on/off

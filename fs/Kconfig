@@ -8,19 +8,6 @@ menu "File systems"
 config DCACHE_WORD_ACCESS
        bool
 
-config FS_TRANSPARENT_COMPRESSION
-	bool "Transparent compression"
-	select ZLIB_INFLATE
-	select ZLIB_DEFLATE
-	select LZ4_COMPRESS
-	select LZ4_DECOMPRESS
-	help
-	  If you say Y here, then the kernel will be able to transparently
-	  compress and decompress individual files on a filesystem.
-
-	  Transparent compression is indicated by setting file xattrs
-	  user.compression.method and user.compression.realsize.
-
 if BLOCK
 
 source "fs/ext2/Kconfig"
@@ -212,6 +199,7 @@ if MISC_FILESYSTEMS
 source "fs/adfs/Kconfig"
 source "fs/affs/Kconfig"
 source "fs/ecryptfs/Kconfig"
+source "fs/sdcardfs/Kconfig"
 source "fs/hfs/Kconfig"
 source "fs/hfsplus/Kconfig"
 source "fs/befs/Kconfig"
@@ -294,6 +282,10 @@ endif # NETWORK_FILESYSTEMS
 
 source "fs/nls/Kconfig"
 source "fs/dlm/Kconfig"
+
+config ASYNC_FSYNC
+	bool "asynchronous fsync"
+	default y
 
 config DYNAMIC_FSYNC
 	bool "dynamic file sync control"

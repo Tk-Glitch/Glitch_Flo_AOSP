@@ -32,7 +32,7 @@ sed -i '/\/sys\/devices\/system\/cpu\/cpu3\/cpufreq\/scaling_governor/d' /tmp/ra
 
 #backup current fstab
 if [ ! -f "/tmp/ramdisk/fstab.orig" ]; then
-cp /tmp/ramdisk/fstab.flo /tmp/ramdisk/fstab.orig;
+mv /tmp/ramdisk/fstab.flo /tmp/ramdisk/fstab.orig;
 fi;
 
 #Check for F2FS and change fstab accordingly in ramdisk
@@ -47,26 +47,28 @@ DATA_F2FS=$?
 mount | grep -q 'system type f2fs'
 SYSTEM_F2FS=$?
 
+#System partition
+if [ $SYSTEM_F2FS -eq 0 ]; then
+	sed -i "/system.*ext4/d" /tmp/fstab
+else
+	sed -i "/system.*f2fs/d" /tmp/fstab
+fi
+
 #Cache partition
 if [ $CACHE_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          f2fs    noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,flush_merge,errors=recover    wait,check/' /tmp/ramdisk/fstab.flo
+	sed -i "/cache.*ext4/d" /tmp/fstab
 else
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/cache        \/cache          ext4    noatime,nosuid,nodev,barrier=1,data=ordered,nomblk_io_submit,errors=panic    wait,check/' /tmp/ramdisk/fstab.flo
-fi;
+	sed -i "/cache.*f2fs/d" /tmp/fstab
+fi
 
 #Data partition
 if [ $DATA_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           f2fs    noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,flush_merge,errors=recover    wait,check,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
+	sed -i "/data.*ext4/d" /tmp/fstab
 else
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/userdata     \/data           ext4    noatime,nosuid,nodev,barrier=1,data=ordered,nomblk_io_submit,errors=panic    wait,check,encryptable=\/dev\/block\/platform\/msm_sdcc.1\/by-name\/metadata/' /tmp/ramdisk/fstab.flo
-fi;
+	sed -i "/data.*f2fs/d" /tmp/fstab
+fi
 
-#System partition
-if [ $SYSTEM_F2FS -eq 0 ]; then
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         f2fs    ro,noatime,nosuid,nodev,nodiratime,discard,inline_xattr,inline_data,inline_dentry,flush_merge,errors=recover    wait/' /tmp/ramdisk/fstab.flo
-else
-sed -i 's/^\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system.*/\/dev\/block\/platform\/msm_sdcc.1\/by-name\/system       \/system         ext4    ro,barrier=1                                                                 wait/' /tmp/ramdisk/fstab.flo
-fi;
+mv /tmp/fstab /tmp/ramdisk/fstab.flo;
 
 #repack
 find . | cpio -o -H newc | gzip > /tmp/initrd.img

@@ -151,7 +151,17 @@ static int ieee80211_add_key(struct wiphy *wiphy, struct net_device *dev,
 			sta = sta_info_get(sdata, mac_addr);
 		else
 			sta = sta_info_get_bss(sdata, mac_addr);
-		if (!sta) {
+		/*
+		 * The ASSOC test makes sure the driver is ready to
+		 * receive the key. When wpa_supplicant has roamed
+		 * using FT, it attempts to set the key before
+		 * association has completed, this rejects that attempt
+		 * so it will set the key again after assocation.
+		 *
+		 * TODO: accept the key if we have a station entry and
+		 *       add it to the device after the station.
+		 */
+		if (!sta || !test_sta_flag(sta, WLAN_STA_ASSOC)) {
 			ieee80211_key_free(sdata->local, key);
 			err = -ENOENT;
 			goto out_unlock;
@@ -1910,7 +1920,7 @@ static int ieee80211_remain_on_channel_hw(struct ieee80211_local *local,
 	if (local->hw_roc_cookie)
 		return -EBUSY;
 	/* must be nonzero */
-	random_cookie = random32() | 1;
+	random_cookie = prandom_u32() | 1;
 
 	*cookie = random_cookie;
 	local->hw_roc_dev = dev;

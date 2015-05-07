@@ -34,6 +34,7 @@ config ARCH_MSM7X27
 	select MULTI_IRQ_HANDLER
 	select MSM_PROC_COMM_REGULATOR
 	select CLEANCACHE
+	select QCACHE
 	select MSM_PM2 if PM
 	select MSM_RUN_QUEUE_STATS if MSM_SOC_REV_A
 	select DONT_MAP_HOLE_AFTER_MEMBANK0
@@ -167,6 +168,7 @@ config ARCH_MSM8960
 	select ARCH_SPARSEMEM_ENABLE
 	select ARCH_HAS_HOLES_MEMORYMODEL
 	select CLEANCACHE
+	select QCACHE
 	select MSM_MULTIMEDIA_USE_ION
 	select MULTI_IRQ_HANDLER
 	select MSM_PM8X60 if PM
@@ -232,6 +234,7 @@ config ARCH_APQ8064
 	select CPU_HAS_L2_PMU
 	select HOLES_IN_ZONE if SPARSEMEM
 	select CLEANCACHE
+	select QCACHE
 	select MIGHT_HAVE_PCI
 	select ARCH_SUPPORTS_MSI
 	select ARM_HAS_SG_CHAIN
@@ -411,6 +414,7 @@ config  ARCH_MSM_KRAITMP
 	select HAVE_ARCH_HAS_CURRENT_TIMER
 	select MSM_JTAG if CORESIGHT_ETM
 	bool
+	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config  ARCH_MSM_CORTEXMP
 	select MSM_SMP
@@ -421,6 +425,7 @@ config  MSM_KRAIT_WFE_FIXUP
 
 config  ARCH_MSM_CORTEX_A5
 	bool
+	select HAVE_HW_BRKPT_RESERVED_RW_ACCESS
 
 config ARCH_MSM7X27A
 	bool
@@ -1615,12 +1620,12 @@ config MSM_CPU_FREQ_SET_MIN_MAX
 config MSM_CPU_FREQ_MAX
 	int "Max CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 2322000
+	default 384000
 
 config MSM_CPU_FREQ_MIN
 	int "Min CPU Frequency"
 	depends on MSM_CPU_FREQ_SET_MIN_MAX
-	default 384000
+	default 245760
 
 endif # CPU_FREQ_MSM
 
@@ -1634,7 +1639,7 @@ config CPU_VOLTAGE_TABLE
 	bool "Enable CPU Voltage Table via sysfs for adjustements"
 	default n
 	help
-	  Krait User Voltage Control 
+	  Krait User Votlage Control 
 
 config GPU_VOLTAGE_TABLE
 	bool "Enable GPU Voltage Table via sysfs for adjustements"
@@ -2640,12 +2645,6 @@ config MSM_CPU_PWRCTL
 	  stand alone power collapse operation. Selecting this option
 	  ensures that they are always off.
 
-config HAS_MACH_MEMUTILS
-	default y
-	bool "Motorola MSM mcmcpy enhancements"
-	help
-	  Faster memcpy performance for Krait
-
 config FORCE_FAST_CHARGE
 	bool "Force AC charge mode at will"
 	default y
@@ -2655,14 +2654,20 @@ config FORCE_FAST_CHARGE
 
 config UPDATE_LCDC_LUT
 	bool "Set initial Qualcomm LCDC lut"
-	default n
+	default y
 	help
 	  Set initial Qualcomm LCDC Look Up Table.
 
 config LCD_KCAL_STANDALONE
 	tristate "MSM generic LCDC Calibration"
-	default n
+	default y
 	help
 	  Enable MSM generic LCDC temperature Calibration.
+
+config HAS_MACH_MEMUTILS
+	default n
+	bool "Motorola MSM mcmcpy enhancements"
+	help
+	  Faster memcpy performance for Krait
 
 endif

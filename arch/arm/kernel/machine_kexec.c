@@ -14,7 +14,6 @@
 #include <asm/cacheflush.h>
 #include <asm/mach-types.h>
 #include <asm/system_misc.h>
-#include <asm/mmu_writeable.h>
 
 extern const unsigned char relocate_new_kernel[];
 extern const unsigned int relocate_new_kernel_size;
@@ -125,12 +124,12 @@ void machine_kexec(struct kimage *image)
 	reboot_code_buffer = page_address(image->control_code_page);
 
 	/* Prepare parameters for reboot_code_buffer*/
-	mem_text_write_kernel_word(&kexec_start_address, image->start);
-	mem_text_write_kernel_word(&kexec_indirection_page, page_list);
-	mem_text_write_kernel_word(&kexec_mach_type, machine_arch_type);
-	mem_text_write_kernel_word(&kexec_boot_atags, image->start - KEXEC_ARM_ZIMAGE_OFFSET + KEXEC_ARM_ATAGS_OFFSET);
+	kexec_start_address = image->start;
+	kexec_indirection_page = page_list;
+	kexec_mach_type = machine_arch_type;
+	kexec_boot_atags = image->start - KEXEC_ARM_ZIMAGE_OFFSET + KEXEC_ARM_ATAGS_OFFSET;
 #ifdef CONFIG_KEXEC_HARDBOOT
-	mem_text_write_kernel_word(&kexec_hardboot, image->hardboot);
+	kexec_hardboot = image->hardboot;
 #endif
 
 	/* copy our kernel relocation code to the control code page */
@@ -152,4 +151,11 @@ void machine_kexec(struct kimage *image)
 #endif
 
 	soft_restart(reboot_code_buffer_phys);
+}
+
+void arch_crash_save_vmcoreinfo(void)
+{
+#ifdef CONFIG_ARM_LPAE
+	VMCOREINFO_CONFIG(ARM_LPAE);
+#endif
 }

@@ -30,11 +30,12 @@
 #include <linux/timer.h>
 #include <linux/interrupt.h>
 #include <linux/mutex.h>
+#include <linux/wakelock.h>
 #include <asm/unaligned.h>
 #include <linux/miscdevice.h>
 #include <mach/gpio.h>
 
-#include <linux/fastchg.h>
+#include <linux/fastchg.h> 
 
 #define SMBUS_RETRY                                     (0)
 #define GPIOPIN_LOW_BATTERY_DETECT	  29

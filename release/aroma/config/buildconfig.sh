@@ -3,130 +3,6 @@
 #Build config file
 CONFIGFILE="/tmp/glitch-settings.conf"
 
-#Wake Gestures
-WG=`grep "selected.0" /tmp/aroma/wg.prop | cut -d '=' -f2`
-echo -e "\n\n##### Wake Gestures Settings #####\n# 0 to disable wake gestures" >> $CONFIGFILE
-echo -e "# 1 to enable wake gestures\n" >> $CONFIGFILE
-if [ "$WG" = 1 ]; then
-  echo "WG=1" >> $CONFIGFILE;
-else
-  echo "WG=0" >> $CONFIGFILE;
-fi
-
-if [ ! -e /tmp/aroma/gest.prop ]; then
-  touch /tmp/aroma/gest.prop;
-fi
-
-#S2W
-SR=`grep "item.1.1" /tmp/aroma/gest.prop | cut -d '=' -f2`
-SL=`grep "item.1.2" /tmp/aroma/gest.prop | cut -d '=' -f2`
-SU=`grep "item.1.3" /tmp/aroma/gest.prop | cut -d '=' -f2`
-SD=`grep "item.1.4" /tmp/aroma/gest.prop | cut -d '=' -f2`
-echo -e "\n\n##### Sweep2wake Settings #####\n# 0 to disable sweep2wake" >> $CONFIGFILE
-echo -e "# 1 to enable sweep right" >> $CONFIGFILE
-echo -e "# 2 to enable sweep left" >> $CONFIGFILE
-echo -e "# 4 to enable sweep up" >> $CONFIGFILE
-echo -e "# 8 to enable sweep down\n" >> $CONFIGFILE
-echo -e "# For combinations, add values together (e.g. all gestures enabled = 15)\n" >> $CONFIGFILE
-if [ "$SL" = 1 ]; then
-  SL=2
-fi
-if [ "$SU" = 1 ]; then
-  SU=4
-fi
-if [ "$SD" = 1 ]; then
-  SD=8
-fi  
-
-S2W=$(( SL + SR + SU + SD ))
-echo S2W=$S2W >> $CONFIGFILE;
-
-#DT2W
-DT2W=`grep "item.1.5" /tmp/aroma/gest.prop | cut -d '=' -f2`
-echo -e "\n\n##### DoubleTap2Wake Settings #####\n# 0 to disable DoubleTap2Wake" >> $CONFIGFILE
-echo -e "# 1 to enable DoubleTap2Wake\n" >> $CONFIGFILE
-if [ "$DT2W" = 1 ]; then
-  echo "DT2W=1" >> $CONFIGFILE;
-else
-  echo "DT2W=0" >> $CONFIGFILE;
-fi
-
-#Shortsweep
-SHORTSWEEP=`grep "item.2.1" /tmp/aroma/gest.prop | cut -d '=' -f2`
-echo -e "\n\n##### Shortsweep Settings #####\n# 0 to disable Shortsweep" >> $CONFIGFILE
-echo -e "# 1 to enable Shortsweep\n" >> $CONFIGFILE
-if [ "$SHORTSWEEP" = 1 ]; then
-  echo "SHORTSWEEP=1" >> $CONFIGFILE;
-else
-  echo "SHORTSWEEP=0" >> $CONFIGFILE;
-fi
-
-#S2W Power key toggle
-PWR_KEY=`grep "item.2.2" /tmp/aroma/gest.prop | cut -d '=' -f2`
-echo -e "\n\n##### Power Key Toggles S2W/DT2W #####\n# 0 to disable" >> $CONFIGFILE
-echo -e "# 1 to enable\n" >> $CONFIGFILE
-if [ "$PWR_KEY" = 1 ]; then
-  echo "PWR_KEY=1" >> $CONFIGFILE;
-else
-  echo "PWR_KEY=0" >> $CONFIGFILE;
-fi
-
-#S2W Magnetic cover toggle
-LID_SUS=`grep "item.2.3" /tmp/aroma/gest.prop | cut -d '=' -f2`
-echo -e "\n\n##### Magnetic Cover Toggles S2W/DT2W #####\n# 0 to disable" >> $CONFIGFILE
-echo -e "# 1 to enable\n" >> $CONFIGFILE
-if [ "$LID_SUS" = 1 ]; then
-  echo "LID_SUS=1" >> $CONFIGFILE;
-else
-  echo "LID_SUS=0" >> $CONFIGFILE;
-fi
-
-#S2W/DT2W Timeout
-if [ ! -e /tmp/aroma/timeout.prop ]; then
-  touch /tmp/aroma/timeout.prop;
-fi
-
-TIMEOUT=`cat /tmp/aroma/timeout.prop | cut -d '=' -f2`
-echo -e "\n\n##### S2W/DT2W Timeout #####\n# 0 = disabled" >> $CONFIGFILE
-echo -e "# Otherwise, specify number of minutes (default is 60)\n" >> $CONFIGFILE
-if [ "$TIMEOUT" = 1 ]; then
-  echo "TIMEOUT=15" >> $CONFIGFILE;
-elif [ "$TIMEOUT" = 2 ]; then
-  echo "TIMEOUT=30" >> $CONFIGFILE;
-elif [ "$TIMEOUT" = 3 ]; then
-  echo "TIMEOUT=60" >> $CONFIGFILE;
-elif [ "$TIMEOUT" = 4 ]; then
-  echo "TIMEOUT=90" >> $CONFIGFILE;
-elif [ "$TIMEOUT" = 5 ]; then
-  echo "TIMEOUT=120" >> $CONFIGFILE;
-else
-  echo "TIMEOUT=0" >> $CONFIGFILE;
-fi
-
-#S2S
-S2S=`grep "item.1.1" /tmp/aroma/s2s.prop | cut -d '=' -f2`
-echo -e "\n\n##### Sweep2Sleep Settings #####\n# 0 to disable Sweep2Sleepe" >> $CONFIGFILE
-echo -e "# 1 to enable Sweep2Sleep\n" >> $CONFIGFILE
-if [ "$S2S" = 1 ]; then
-  echo "S2S=1" >> $CONFIGFILE;
-else
-  echo "S2S=0" >> $CONFIGFILE;
-fi
-
-#S2S Options
-PORTRAIT=`grep "item.2.1" /tmp/aroma/s2s.prop | cut -d '=' -f2`
-LANDSCAPE=`grep "item.2.2" /tmp/aroma/s2s.prop | cut -d '=' -f2`
-echo -e "\n\n##### Sweep2sleep Orientation Settings #####\n# 0 to enable portrait and landscape" >> $CONFIGFILE
-echo -e "# 1 to disable sweep2sleep landscape mode\n" >> $CONFIGFILE
-echo -e "# 2 to disable sweep2sleep in portrait mode\n" >> $CONFIGFILE
-if [ "$PORTRAIT" = 1 ]; then
-  echo "ORIENTATION=1" >> $CONFIGFILE;
-elif [ "$LANDSCAPE" = 1 ]; then
-  echo "ORIENTATION=2" >> $CONFIGFILE;
-else
-  echo "ORIENTATION=0" >> $CONFIGFILE;
-fi
-
 #Fast Charge
 FAST_CHARGE=`grep "item.0.1" /tmp/aroma/misc.prop | cut -d '=' -f2`
 echo -e "\n\n##### Force fast-charge Settings #####\n# 0 to disable fast-charge" >> $CONFIGFILE
@@ -176,13 +52,23 @@ else
 fi
 
 #Permissive Selinux
-PERMISSIVE=`grep "item.0.8" /tmp/aroma/misc.prop | cut -d '=' -f2`
+PERMISSIVE=`grep "item.0.7" /tmp/aroma/misc.prop | cut -d '=' -f2`
 echo -e "\n\n##### Enforce Selinux #####\n# 0 for default" >> $CONFIGFILE
 echo -e "# 1 to enable permissive Selinux\n" >> $CONFIGFILE
 if [ "$PERMISSIVE" = 1 ]; then
   echo "PERMISSIVE=1" >> $CONFIGFILE;
 else
   echo "PERMISSIVE=0" >> $CONFIGFILE;
+fi
+
+#DT2W
+DT2W=`grep "item.0.8" /tmp/aroma/misc.prop | cut -d '=' -f2`
+echo -e "\n\n##### Enable DT2W #####\n# 0 to disable" >> $CONFIGFILE
+echo -e "# 1 to enable DT2W\n" >> $CONFIGFILE
+if [ "$DT2W" = 1 ]; then
+  echo "DT2W=1" >> $CONFIGFILE;
+else
+  echo "DT2W=0" >> $CONFIGFILE;
 fi
 
 #THERMAL
@@ -251,20 +137,10 @@ else
   echo "GPU_OC=2" >> $CONFIGFILE;
 fi
 
-#GPU Governor
-#GPU_GOV=`grep selected.2 /tmp/aroma/gpu.prop | cut -d '=' -f2`
-#echo -e "\n\n##### GPU Governor #####\n# 1 Ondemand (default)" >> $CONFIGFILE
-#echo -e "# 2 Interactive\n# 3 Performance\n" >> $CONFIGFILE
-#if [ "$GPU_GOV" = 2 ]; then
-#  echo "GPU_GOV=2" >> $CONFIGFILE;
-#else
-#  echo "GPU_GOV=1" >> $CONFIGFILE;
-#fi
-
 #I/O scheduler
 IOSCHED=`grep selected.1 /tmp/aroma/disk.prop | cut -d '=' -f2`
 echo -e "\n\n##### I/O scheduler #####\n# 1 cfq (stock)\n# 2 row" >> $CONFIGFILE
-echo -e "# 3 deadline\n# 4 fiops\n# 5 sio# 6 noop\n" >> $CONFIGFILE
+echo -e "# 3 deadline\n# 4 fiops\n# 5 sio# 6 noop# 7 bfq\n" >> $CONFIGFILE
 if [ "$IOSCHED" = 2 ]; then
   echo "IOSCHED=2" >> $CONFIGFILE;
 elif [ "$IOSCHED" = 3 ]; then
@@ -275,6 +151,8 @@ elif [ "$IOSCHED" = 5 ]; then
   echo "IOSCHED=5" >> $CONFIGFILE;
 elif [ "$IOSCHED" = 6 ]; then
   echo "IOSCHED=6" >> $CONFIGFILE;
+elif [ "$IOSCHED" = 7 ]; then
+  echo "IOSCHED=7" >> $CONFIGFILE;
 else
   echo "IOSCHED=1" >> $CONFIGFILE;
 fi

@@ -2133,10 +2133,11 @@ static struct platform_device msm_tsens_device = {
 };
 
 static struct msm_thermal_data msm_thermal_pdata = {
-	.sensor_id = 7,
+	.sensor_id = 0,
 /*	.poll_ms = 250,
-	.limit_temp_degC = 60,
-	.temp_hysteresis_degC = 10,
+ 	.limit_temp_degC = 60,
+ 	.temp_hysteresis_degC = 10,
+	.freq_step = 2,
 	.freq_step = 2,*/
 };
 
@@ -2271,13 +2272,13 @@ static struct msm_rpmrs_platform_data msm_rpmrs_data __initdata = {
 		[MSM_RPMRS_VDD_MEM_RET_LOW]	= 750000,
 		[MSM_RPMRS_VDD_MEM_RET_HIGH]	= 750000,
 		[MSM_RPMRS_VDD_MEM_ACTIVE]	= 1050000,
-		[MSM_RPMRS_VDD_MEM_MAX]		= 1250000,
+		[MSM_RPMRS_VDD_MEM_MAX]		= 1150000,
 	},
 	.vdd_dig_levels = {
 		[MSM_RPMRS_VDD_DIG_RET_LOW]	= 500000,
 		[MSM_RPMRS_VDD_DIG_RET_HIGH]	= 750000,
 		[MSM_RPMRS_VDD_DIG_ACTIVE]	= 950000,
-		[MSM_RPMRS_VDD_DIG_MAX]		= 1250000,
+		[MSM_RPMRS_VDD_DIG_MAX]		= 1150000,
 	},
 	.vdd_mask = 0x7FFFFF,
 	.rpmrs_target_id = {
