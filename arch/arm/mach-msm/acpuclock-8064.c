@@ -886,6 +886,7 @@ static int __init acpuclk_8064_probe(struct platform_device *pdev)
 		acpuclk_8064_params.hfpll_data->low_vdd_l_max = 37;
 		acpuclk_8064_params.hfpll_data->nom_vdd_l_max = 74;
 	}
+
 	if (opt_bin == 1) {
 		acpuclk_8064_params.l2_freq_tbl = l2_freq_tbl_oc1;
 		acpuclk_8064_params.l2_freq_tbl_size = sizeof(l2_freq_tbl_oc1);

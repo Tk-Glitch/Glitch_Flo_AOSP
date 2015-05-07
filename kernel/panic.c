@@ -23,6 +23,7 @@
 #include <linux/init.h>
 #include <linux/nmi.h>
 #include <linux/dmi.h>
+#include <linux/console.h>
 #include <linux/coresight.h>
 #include <linux/console.h>
 
@@ -132,8 +133,6 @@ void panic(const char *fmt, ...)
 	 */
 	crash_kexec(NULL);
 
-	kmsg_dump(KMSG_DUMP_PANIC);
-
 	/* print last_kmsg even after console suspend */
 	if (is_console_suspended())
 		resume_console();
@@ -145,7 +144,16 @@ void panic(const char *fmt, ...)
 	 */
 	smp_send_stop();
 
+	kmsg_dump(KMSG_DUMP_PANIC);
+
 	atomic_notifier_call_chain(&panic_notifier_list, 0, buf);
+
+	/*
+	 * Unlock the console anyway here, in case it's occupied by another
+	 * one which has no chance to unlock the console thus prevents the
+	 * panic log prints on the console.
+	 */
+	console_unlock();
 
 	bust_spinlocks(0);
 
@@ -488,7 +496,7 @@ EXPORT_SYMBOL(warn_slowpath_null);
  * Called when gcc's -fstack-protector feature is used, and
  * gcc detects corruption of the on-stack canary value
  */
-void __stack_chk_fail(void)
+__visible void __stack_chk_fail(void)
 {
 	panic("stack-protector: Kernel stack is corrupted in: %p\n",
 		__builtin_return_address(0));

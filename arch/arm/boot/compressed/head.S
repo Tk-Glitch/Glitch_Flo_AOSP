@@ -9,12 +9,12 @@
  * published by the Free Software Foundation.
  */
 #include <linux/linkage.h>
-
 #ifdef CONFIG_KEXEC_HARDBOOT
-  #include <asm/kexec.h>
-  #include <asm/memory.h>
+#include <asm/kexec.h>
+#include <asm/memory.h>
 #endif
 
+	.arch	armv7-a
 /*
  * Debugging stuff
  *
@@ -758,6 +758,7 @@ __armv7_mmu_cache_on:
 		mcrne	p15, 0, r0, c8, c7, 0	@ flush I,D TLBs
 #endif
 		mrc	p15, 0, r0, c1, c0, 0	@ read control reg
+		bic	r0, r0, #1 << 28	@ clear SCTLR.TRE
 		orr	r0, r0, #0x5000		@ I-cache enable, RR cache replacement
 		orr	r0, r0, #0x003c		@ write buffer
 		bic	r0, r0, #2		@ A (no unaligned access fault)

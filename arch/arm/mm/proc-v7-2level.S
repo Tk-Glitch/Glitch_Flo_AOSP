@@ -55,17 +55,12 @@ ENTRY(cpu_v7_switch_mm)
 	and     r1, r1, #0xff
 	orr     r1, r1, r2                      @ insert the PID into r1
 #endif
-	mcr	p15, 0, r2, c13, c0, 1		@ set reserved context ID
-	isb
-1:	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
-	isb
-#ifdef CONFIG_ARM_ERRATA_754322
-	dsb
-#endif
 	mcr	p15, 0, r1, c13, c0, 1		@ set context ID
 	isb
+	mcr	p15, 0, r0, c2, c0, 0		@ set TTB 0
+	isb
 #endif
-	mov	pc, lr
+	bx	lr
 ENDPROC(cpu_v7_switch_mm)
 
 /*
@@ -114,7 +109,7 @@ ENTRY(cpu_v7_set_pte_ext)
  THUMB(	str	r3, [r0] )
 	mcr	p15, 0, r0, c7, c10, 1		@ flush_pte
 #endif
-	mov	pc, lr
+	bx	lr
 ENDPROC(cpu_v7_set_pte_ext)
 
 	/*

@@ -100,6 +100,10 @@ config CRYPTO_MANAGER2
 	select CRYPTO_BLKCIPHER2
 	select CRYPTO_PCOMP2
 
+config CRYPTO_ABLK_HELPER
+	tristate
+	select CRYPTO_CRYPTD
+
 config CRYPTO_USER
 	tristate "Userspace cryptographic algorithm configuration"
 	depends on NET
@@ -173,6 +177,10 @@ config CRYPTO_TEST
 	select CRYPTO_MANAGER
 	help
 	  Quick & dirty crypto test module.
+
+config CRYPTO_ABLK_HELPER
+	tristate
+	select CRYPTO_CRYPTD
 
 comment "Authenticated Encryption with Associated Data"
 

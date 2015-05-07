@@ -110,8 +110,14 @@ struct cpufreq_policy {
 
 	struct cpufreq_real_policy	user_policy;
 
-	struct kobject		kobj;
+	struct kobject		*kobj;
 	struct completion	kobj_unregister;
+};
+
+/* contains per cpu sysfs info ./sys/devices/ssytem/cpu/cpu#/cpufreq */
+struct cpufreq_cpu_sysinfo {
+	struct cpufreq_policy *cpu_policy; /* policy for online cpu */
+	struct kobject cpu_kobj; /* per cpu kobject */
 };
 
 #define CPUFREQ_ADJUST		(0)
@@ -373,9 +379,9 @@ extern struct cpufreq_governor cpufreq_gov_userspace;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ONDEMAND)
 extern struct cpufreq_governor cpufreq_gov_ondemand;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_ondemand)
-#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_ELEMENTALX)
-extern struct cpufreq_governor cpufreq_gov_elementalx;
-#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_elementalx)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_SMARTMAX)
+extern struct cpufreq_governor cpufreq_gov_smartmax;
+#define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_smartmax)
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_CONSERVATIVE)
 extern struct cpufreq_governor cpufreq_gov_conservative;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_conservative)
@@ -385,6 +391,9 @@ extern struct cpufreq_governor cpufreq_gov_interactive;
 #elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIDEMAND)
 extern struct cpufreq_governor cpufreq_gov_intellidemand;
 #define CPUFREQ_DEFAULT_GOVERNOR	(&cpufreq_gov_intellidemand)
+#elif defined(CONFIG_CPU_FREQ_DEFAULT_GOV_INTELLIACTIVE)
+extern struct cpufreq_governor cpufreq_gov_intelliactive;
+#define CPUFREQ_DEFAULT_GOVERNOR        (&cpufreq_gov_intelliactive)
 #endif
 
 

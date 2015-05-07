@@ -85,7 +85,6 @@ repeat:
 		crst_table_free(mm, table);
 	if (mm->context.asce_limit < limit)
 		goto repeat;
-	update_mm(mm, current);
 	return 0;
 }
 
@@ -93,9 +92,6 @@ void crst_table_downgrade(struct mm_struct *mm, unsigned long limit)
 {
 	pgd_t *pgd;
 
-	if (mm->context.asce_limit <= limit)
-		return;
-	__tlb_flush_mm(mm);
 	while (mm->context.asce_limit > limit) {
 		pgd = mm->pgd;
 		switch (pgd_val(*pgd) & _REGION_ENTRY_TYPE_MASK) {
@@ -118,7 +114,6 @@ void crst_table_downgrade(struct mm_struct *mm, unsigned long limit)
 		mm->task_size = mm->context.asce_limit;
 		crst_table_free(mm, (unsigned long *) pgd);
 	}
-	update_mm(mm, current);
 }
 #endif
 
@@ -812,7 +807,7 @@ int s390_enable_sie(void)
 	task_lock(tsk);
 	if (!tsk->mm || atomic_read(&tsk->mm->mm_users) > 1 ||
 #ifdef CONFIG_AIO
-	    !hlist_empty(&tsk->mm->ioctx_list) ||
+	    tsk->mm->ioctx_rtree.rnode ||
 #endif
 	    tsk->mm != tsk->active_mm) {
 		task_unlock(tsk);
@@ -831,7 +826,7 @@ int s390_enable_sie(void)
 	task_lock(tsk);
 	if (!tsk->mm || atomic_read(&tsk->mm->mm_users) > 1 ||
 #ifdef CONFIG_AIO
-	    !hlist_empty(&tsk->mm->ioctx_list) ||
+	    tsk->mm->ioctx_rtree.rnode ||
 #endif
 	    tsk->mm != tsk->active_mm) {
 		mmput(mm);

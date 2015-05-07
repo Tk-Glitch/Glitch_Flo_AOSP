@@ -1,6 +1,6 @@
 VERSION = 3
 PATCHLEVEL = 4
-SUBLEVEL = 0
+SUBLEVEL = 107
 EXTRAVERSION =
 NAME = Saber-toothed Squirrel
 
@@ -21,6 +21,9 @@ unexport LC_ALL
 LC_COLLATE=C
 LC_NUMERIC=C
 export LC_COLLATE LC_NUMERIC
+
+# Avoid interference with shell env settings
+unexport GREP_OPTIONS
 
 # We are using a recursive build, so we need to do a little thinking
 # to get the ordering right.
@@ -245,13 +248,8 @@ CONFIG_SHELL := $(shell if [ -x "$$BASH" ]; then echo $$BASH; \
 
 HOSTCC       = gcc
 HOSTCXX      = g++
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -ftree-vectorize -fomit-frame-pointer
-HOSTCXXFLAGS = -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -ftree-vectorize -mvectorize-with-neon-quad
-else
-HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer
-HOSTCXXFLAGS = -O2
-endif
+HOSTCFLAGS   = -Wall -Wmissing-prototypes -Wstrict-prototypes -O2 -fomit-frame-pointer -fsingle-precision-constant -std=gnu89
+HOSTCXXFLAGS = -O2 -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4
 
 # Decide whether to build built-in, modular, or both.
 # Normally, just do built-in.
@@ -334,10 +332,15 @@ include $(srctree)/scripts/Kbuild.include
 # Make variables (CC, etc...)
 
 AS		= $(CROSS_COMPILE)as
-LD		= $(CROSS_COMPILE)ld
-REAL_CC		= $(CROSS_COMPILE)gcc
+LD		= $(CROSS_COMPILE)ld.bfd
+LDFINAL	= $(LD)
+CC		= $(CROSS_COMPILE)gcc
 CPP		= $(CC) -E
+ifdef CONFIG_LTO_SLIM
+AR		= $(CROSS_COMPILE)gcc-ar
+else
 AR		= $(CROSS_COMPILE)ar
+endif
 NM		= $(CROSS_COMPILE)nm
 STRIP		= $(CROSS_COMPILE)strip
 OBJCOPY		= $(CROSS_COMPILE)objcopy
@@ -350,29 +353,14 @@ KALLSYMS	= scripts/kallsyms
 PERL		= perl
 CHECK		= sparse
 
-# Use the wrapper for the compiler.  This wrapper scans for new
-# warnings and causes the build to stop upon encountering them.
-CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
-
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-MODFLAGS	= -DMODULE -O2 -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -fno-pic -marm -mfpu=neon-vfpv4 -ftree-vectorize -mvectorize-with-neon-quad
-else
-MODFLAGS	= -DMODULE -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a15 -fno-pic -marm -mfpu=neon -ftree-vectorize -mvectorize-with-neon-quad
-endif
-
-CFLAGS_MODULE   = $(MODFLAGS)
-AFLAGS_MODULE   = $(MODFLAGS)
-LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-CFLAGS_KERNEL	= -Ofast -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -funswitch-loops -mvectorize-with-neon-quad -fgraphite-identity -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
-AFLAGS_KERNEL	= -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -funswitch-loops -mvectorize-with-neon-quad
-else
-CFLAGS_KERNEL	= -O2 -munaligned-access -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -funswitch-loops -mvectorize-with-neon-quad
-AFLAGS_KERNEL	= 
+CFLAGS_MODULE   =
+AFLAGS_MODULE   =
+LDFLAGS_MODULE  = --strip-debug
+CFLAGS_KERNEL	=
+AFLAGS_KERNEL	=
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
-endif
 
 
 # Use LINUXINCLUDE when you must reference the include/ directory.
@@ -382,33 +370,29 @@ LINUXINCLUDE    := -I$(srctree)/arch/$(hdr-arch)/include \
                    $(if $(KBUILD_SRC), -I$(srctree)/include) \
                    -include $(srctree)/include/linux/kconfig.h
 
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-KBUILD_CPPFLAGS := -D__KERNEL__ -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -ftree-vectorize -mvectorize-with-neon-quad
-else
 KBUILD_CPPFLAGS := -D__KERNEL__
-endif
 
 KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
-		   -Wno-format-security -Wno-unused-function -Wno-array-bounds -Wno-uninitialized \
-		   -fno-delete-null-pointer-checks -Wno-unused-variable -Wno-maybe-uninitialized -Wno-cpp -Wno-declaration-after-statement \
 		   -mcpu=cortex-a15 -mtune=cortex-a15 -mfpu=neon-vfpv4 \
-		   -fpredictive-commoning -fgcse-after-reload -ftree-vectorize \
-		   -mno-unaligned-access \
-		   -fipa-cp-clone -fsingle-precision-constant -pipe \
-		   -funswitch-loops -fmodulo-sched -fmodulo-sched-allow-regmoves \
-		   -fgraphite-identity -ftree-loop-linear -floop-interchange -floop-strip-mine -floop-block
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-KBUILD_AFLAGS_KERNEL := -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -ftree-vectorize -mvectorize-with-neon-quad
-KBUILD_CFLAGS_KERNEL := -Ofast -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -marm -mfpu=neon-vfpv4 -ftree-vectorize -mvectorize-with-neon-quad
-else
+		   -fsingle-precision-constant -pipe \
+		   -Wno-format-security \
+		   -fno-delete-null-pointer-checks \
+		   -std=gnu89
+
+# arter97's optimizations
+KBUILD_CFLAGS	+= -s -pipe -fno-pic -O2
+# -Wno-unused
+KBUILD_CFLAGS	+= -Wno-unused
+# L1/L2 cache size parameters by @JustArchi
+KBUILD_CFLAGS	+= --param l1-cache-size=16 --param l1-cache-line-size=16 --param l2-cache-size=2048
+
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
-endif
 KBUILD_AFLAGS   := -D__ASSEMBLY__
 KBUILD_AFLAGS_MODULE  := -DMODULE
-KBUILD_CFLAGS_MODULE  := -DMODULE -fgcse-lm -fgcse-sm -fsched-spec-load -fforce-addr -ffast-math -fsingle-precision-constant -mcpu=cortex-a15 -mtune=cortex-a15 -mfpu=neon-vfpv4 -ftree-vectorize -funswitch-loops -Wno-cpp
+KBUILD_CFLAGS_MODULE  := -DMODULE
 KBUILD_LDFLAGS_MODULE := -T $(srctree)/scripts/module-common.lds
 
 # Read KERNELRELEASE from include/config/kernel.release (if it exists)
@@ -417,7 +401,7 @@ KERNELVERSION = $(VERSION)$(if $(PATCHLEVEL),.$(PATCHLEVEL)$(if $(SUBLEVEL),.$(S
 
 export VERSION PATCHLEVEL SUBLEVEL KERNELRELEASE KERNELVERSION
 export ARCH SRCARCH CONFIG_SHELL HOSTCC HOSTCFLAGS CROSS_COMPILE AS LD CC
-export CPP AR NM STRIP OBJCOPY OBJDUMP
+export CPP AR NM STRIP OBJCOPY OBJDUMP LDFINAL
 export MAKE AWK GENKSYMS INSTALLKERNEL PERL UTS_MACHINE
 export HOSTCXX HOSTCXXFLAGS LDFLAGS_MODULE CHECK CHECKFLAGS
 
@@ -593,17 +577,10 @@ endif # $(dot-config)
 # Defaults to vmlinux, but the arch makefile usually adds further targets
 all: vmlinux
 
-ifdef CONFIG_CC_OPTIMIZE_FOR_SIZE
-KBUILD_CFLAGS	+= -Os
-endif
-ifdef CONFIG_CC_OPTIMIZE_DEFAULT
-KBUILD_CFLAGS	+= -O2
-endif
-ifdef CONFIG_CC_OPTIMIZE_ALOT
-KBUILD_CFLAGS	+= -Ofast
-endif
-
 include $(srctree)/arch/$(SRCARCH)/Makefile
+
+# Tell gcc to never replace conditional load with a non-conditional one
+KBUILD_CFLAGS	+= $(call cc-option,--param=allow-store-data-races=0)
 
 ifneq ($(CONFIG_FRAME_WARN),0)
 KBUILD_CFLAGS += $(call cc-option,-Wframe-larger-than=${CONFIG_FRAME_WARN})
@@ -618,18 +595,20 @@ endif
 # Use make W=1 to enable this warning (see scripts/Makefile.build)
 KBUILD_CFLAGS += $(call cc-disable-warning, unused-but-set-variable)
 
-# ifdef CONFIG_FRAME_POINTER
-# KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
-# else
+#ifdef CONFIG_FRAME_POINTER
+#KBUILD_CFLAGS	+= -fno-omit-frame-pointer -fno-optimize-sibling-calls
+#else
 # Some targets (ARM with Thumb2, for example), can't be built with frame
 # pointers.  For those, we don't have FUNCTION_TRACER automatically
 # select FRAME_POINTER.  However, FUNCTION_TRACER adds -pg, and this is
 # incompatible with -fomit-frame-pointer with current GCC, so we don't use
 # -fomit-frame-pointer with FUNCTION_TRACER.
-# ifndef CONFIG_FUNCTION_TRACER
+#ifndef CONFIG_FUNCTION_TRACER
 KBUILD_CFLAGS	+= -fomit-frame-pointer
-# endif
-# endif
+#endif
+#endif
+
+KBUILD_CFLAGS   += $(call cc-option, -fno-var-tracking-assignments)
 
 ifdef CONFIG_DEBUG_INFO
 KBUILD_CFLAGS	+= -g
@@ -671,6 +650,12 @@ KBUILD_CFLAGS	+= $(call cc-option,-fno-strict-overflow)
 # conserve stack if available
 KBUILD_CFLAGS   += $(call cc-option,-fconserve-stack)
 
+# disallow errors like 'EXPORT_GPL(foo);' with missing header
+KBUILD_CFLAGS   += $(call cc-option,-Werror=implicit-int)
+
+# require functions to have arguments in prototypes, not empty 'int foo()'
+KBUILD_CFLAGS   += $(call cc-option,-Werror=strict-prototypes)
+
 # use the deterministic mode of AR if available
 KBUILD_ARFLAGS := $(call ar-option,D)
 
@@ -678,6 +663,8 @@ KBUILD_ARFLAGS := $(call ar-option,D)
 ifeq ($(shell $(CONFIG_SHELL) $(srctree)/scripts/gcc-goto.sh $(CC)), y)
 	KBUILD_CFLAGS += -DCC_HAVE_ASM_GOTO
 endif
+
+include ${srctree}/scripts/Makefile.lto
 
 # Add user supplied CPPFLAGS, AFLAGS and CFLAGS as the last assignments
 # But warn user when we do so
@@ -801,8 +788,8 @@ export KBUILD_VMLINUX_OBJS := $(vmlinux-all)
 
 # Rule to link vmlinux - also used during CONFIG_KALLSYMS
 # May be overridden by arch/$(ARCH)/Makefile
-quiet_cmd_vmlinux__ ?= LD      $@
-      cmd_vmlinux__ ?= $(LD) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $@ \
+quiet_cmd_vmlinux__ ?= LDFINAL  $@
+      cmd_vmlinux__ ?= $(LDFINAL) $(LDFLAGS) $(LDFLAGS_vmlinux) -o $@ \
       -T $(vmlinux-lds) $(vmlinux-init)                          \
       --start-group $(vmlinux-main) --end-group                  \
       $(filter-out $(vmlinux-lds) $(vmlinux-init) $(vmlinux-main) vmlinux.o FORCE ,$^)
@@ -830,9 +817,9 @@ quiet_cmd_sysmap = SYSMAP
 # First command is ':' to allow us to use + in front of the rule
 define rule_vmlinux__
 	:
-	$(if $(CONFIG_KALLSYMS),,+$(call cmd,vmlinux_version))
+	+$(if $(CONFIG_KALLSYMS),,+$(call cmd,vmlinux_version))
 
-	$(call cmd,vmlinux__)
+	+$(call cmd,vmlinux__)
 	$(Q)echo 'cmd_$@ := $(cmd_vmlinux__)' > $(@D)/.$(@F).cmd
 
 	$(Q)$(if $($(quiet)cmd_sysmap),                                      \
@@ -899,6 +886,7 @@ endef
 # Generate .S file with all kernel symbols
 quiet_cmd_kallsyms = KSYM    $@
       cmd_kallsyms = $(NM) -n $< | $(KALLSYMS) \
+                     --page-offset=$(CONFIG_PAGE_OFFSET) \
                      $(if $(CONFIG_KALLSYMS_ALL),--all-symbols) > $@
 
 .tmp_kallsyms1.o .tmp_kallsyms2.o .tmp_kallsyms3.o: %.o: %.S scripts FORCE
@@ -956,8 +944,8 @@ endif
 ifdef CONFIG_BUILD_DOCSRC
 	$(Q)$(MAKE) $(build)=Documentation
 endif
-	$(call vmlinux-modpost)
-	$(call if_changed_rule,vmlinux__)
+	+$(call vmlinux-modpost)
+	+$(call if_changed_rule,vmlinux__)
 	$(Q)rm -f .old_version
 
 # build vmlinux.o first to catch section mismatch errors early

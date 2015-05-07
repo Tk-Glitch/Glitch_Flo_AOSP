@@ -6,6 +6,7 @@
  * Address space accounting code	<alan@lxorguk.ukuu.org.uk>
  */
 
+#include <linux/kernel.h>
 #include <linux/slab.h>
 #include <linux/backing-dev.h>
 #include <linux/mm.h>
@@ -30,7 +31,6 @@
 #include <linux/perf_event.h>
 #include <linux/audit.h>
 #include <linux/khugepaged.h>
-#include <linux/ksm.h>
 
 #include <asm/uaccess.h>
 #include <asm/cacheflush.h>
@@ -38,6 +38,9 @@
 #include <asm/mmu_context.h>
 
 #include "internal.h"
+#ifdef CONFIG_SDCARD_FS
+#include "../fs/sdcardfs/sdcardfs.h"
+#endif
 
 #ifndef arch_mmap_check
 #define arch_mmap_check(addr, len, flags)	(0)
@@ -66,7 +69,7 @@ static void unmap_region(struct mm_struct *mm,
  * MAP_SHARED	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
  *		w: (no) no	w: (no) no	w: (yes) yes	w: (no) no
  *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
- *
+ *		
  * MAP_PRIVATE	r: (no) no	r: (yes) yes	r: (no) yes	r: (no) yes
  *		w: (no) no	w: (no) no	w: (copy) copy	w: (no) no
  *		x: (no) no	x: (no) yes	x: (no) yes	x: (yes) yes
@@ -237,7 +240,6 @@ static struct vm_area_struct *remove_vma(struct vm_area_struct *vma)
 			removed_exe_file_vma(vma->vm_mm);
 	}
 	mpol_put(vma_policy(vma));
-	uksm_remove_vma(vma);
 	kmem_cache_free(vm_area_cachep, vma);
 	return next;
 }
@@ -394,6 +396,34 @@ find_vma_prepare(struct mm_struct *mm, unsigned long addr,
 	return vma;
 }
 
+static unsigned long count_vma_pages_range(struct mm_struct *mm,
+		unsigned long addr, unsigned long end)
+{
+	unsigned long nr_pages = 0;
+	struct vm_area_struct *vma;
+
+	/* Find first overlaping mapping */
+	vma = find_vma_intersection(mm, addr, end);
+	if (!vma)
+		return 0;
+
+	nr_pages = (min(end, vma->vm_end) -
+		max(addr, vma->vm_start)) >> PAGE_SHIFT;
+
+	/* Iterate over the rest of the overlaps */
+	for (vma = vma->vm_next; vma; vma = vma->vm_next) {
+		unsigned long overlap_len;
+
+		if (vma->vm_start > end)
+			break;
+
+		overlap_len = min(end, vma->vm_end) - vma->vm_start;
+		nr_pages += overlap_len >> PAGE_SHIFT;
+	}
+
+	return nr_pages;
+}
+
 void __vma_link_rb(struct mm_struct *mm, struct vm_area_struct *vma,
 		struct rb_node **rb_link, struct rb_node *rb_parent)
 {
@@ -503,16 +533,9 @@ int vma_adjust(struct vm_area_struct *vma, unsigned long start,
 	long adjust_next = 0;
 	int remove_next = 0;
 
-/*
- * to avoid deadlock, ksm_remove_vma must be done before any spin_lock is
- * acquired
- */
-	uksm_remove_vma(vma);
-
 	if (next && !insert) {
 		struct vm_area_struct *exporter = NULL;
 
-		uksm_remove_vma(next);
 		if (end >= next->vm_end) {
 			/*
 			 * vma expands, overlapping all the next, and
@@ -547,9 +570,12 @@ again:			remove_next = 1 + (end > next->vm_end);
 		 * shrinking vma had, to cover any anon pages imported.
 		 */
 		if (exporter && exporter->anon_vma && !importer->anon_vma) {
-			if (anon_vma_clone(importer, exporter))
-				return -ENOMEM;
+			int error;
+
 			importer->anon_vma = exporter->anon_vma;
+			error = anon_vma_clone(importer, exporter);
+			if (error)
+				return error;
 		}
 	}
 
@@ -588,10 +614,10 @@ again:			remove_next = 1 + (end > next->vm_end);
 		if (adjust_next)
 			vma_prio_tree_remove(next, root);
 	}
+
 	vma->vm_start = start;
 	vma->vm_end = end;
 	vma->vm_pgoff = pgoff;
-
 	if (adjust_next) {
 		next->vm_start += adjust_next << PAGE_SHIFT;
 		next->vm_pgoff += adjust_next;
@@ -644,15 +670,10 @@ again:			remove_next = 1 + (end > next->vm_end);
 		 */
 		if (remove_next == 2) {
 			next = vma->vm_next;
-			uksm_remove_vma(next);
 			goto again;
 		}
-	} else {
-		if (next && !insert)
-			uksm_vma_add_new(next);
 	}
 
-	uksm_vma_add_new(vma);
 	validate_mm(mm);
 
 	return 0;
@@ -817,7 +838,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				end, prev->vm_pgoff, NULL);
 		if (err)
 			return NULL;
-		khugepaged_enter_vma_merge(prev);
+		khugepaged_enter_vma_merge(prev, vm_flags);
 		return prev;
 	}
 
@@ -836,7 +857,7 @@ struct vm_area_struct *vma_merge(struct mm_struct *mm,
 				next->vm_pgoff - pglen, NULL);
 		if (err)
 			return NULL;
-		khugepaged_enter_vma_merge(area);
+		khugepaged_enter_vma_merge(area, vm_flags);
 		return area;
 	}
 
@@ -983,6 +1004,11 @@ static unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	int error;
 	unsigned long reqprot = prot;
 
+#ifdef CONFIG_SDCARD_FS
+	if (file && (file->f_path.mnt->mnt_sb->s_magic == SDCARDFS_SUPER_MAGIC))
+		file = sdcardfs_lower_file(file);
+#endif
+
 	/*
 	 * Does the application expect PROT_READ to imply PROT_EXEC?
 	 *
@@ -1025,9 +1051,6 @@ static unsigned long do_mmap_pgoff(struct file *file, unsigned long addr,
 	 */
 	vm_flags = calc_vm_prot_bits(prot) | calc_vm_flag_bits(flags) |
 			mm->def_flags | VM_MAYREAD | VM_MAYWRITE | VM_MAYEXEC;
-
-	/* If uksm is enabled, we add VM_MERGABLE to new VMAs. */
-	uksm_vm_flags_mod(&vm_flags);
 
 	if (flags & MAP_LOCKED)
 		if (!can_do_mlock())
@@ -1153,15 +1176,19 @@ SYSCALL_DEFINE6(mmap_pgoff, unsigned long, addr, unsigned long, len,
 		file = fget(fd);
 		if (!file)
 			goto out;
+		if (is_file_hugepages(file))
+			len = ALIGN(len, huge_page_size(hstate_file(file)));
 	} else if (flags & MAP_HUGETLB) {
 		struct user_struct *user = NULL;
+
+		len = ALIGN(len, huge_page_size(&default_hstate));
 		/*
 		 * VM_NORESERVE is used because the reservations will be
 		 * taken when vm_ops->mmap() is called
 		 * A dummy user value is used because we are not locking
 		 * memory so no accounting is necessary
 		 */
-		file = hugetlb_file_setup(HUGETLB_ANON_FILE, addr, len,
+		file = hugetlb_file_setup(HUGETLB_ANON_FILE, len,
 						VM_NORESERVE, &user,
 						HUGETLB_ANONHUGE_INODE);
 		if (IS_ERR(file))
@@ -1264,6 +1291,23 @@ unsigned long mmap_region(struct file *file, unsigned long addr,
 	unsigned long charged = 0;
 	struct inode *inode =  file ? file->f_path.dentry->d_inode : NULL;
 
+	/* Check against address space limit. */
+	if (!may_expand_vm(mm, len >> PAGE_SHIFT)) {
+		unsigned long nr_pages;
+
+		/*
+		 * MAP_FIXED may remove pages of mappings that intersects with
+		 * requested mapping. Account for the pages it would unmap.
+		 */
+		if (!(vm_flags & MAP_FIXED))
+			return -ENOMEM;
+
+		nr_pages = count_vma_pages_range(mm, addr, addr + len);
+
+		if (!may_expand_vm(mm, (len >> PAGE_SHIFT) - nr_pages))
+			return -ENOMEM;
+	}
+
 	/* Clear old maps */
 	error = -ENOMEM;
 munmap_back:
@@ -1273,10 +1317,6 @@ munmap_back:
 			return -ENOMEM;
 		goto munmap_back;
 	}
-
-	/* Check against address space limit. */
-	if (!may_expand_vm(mm, len >> PAGE_SHIFT))
-		return -ENOMEM;
 
 	/*
 	 * Set 'VM_NORESERVE' if we should not account for the
@@ -1381,7 +1421,6 @@ munmap_back:
 
 	vma_link(mm, vma, prev, rb_link, rb_parent);
 	file = vma->vm_file;
-	uksm_vma_add_new(vma);
 
 	/* Once vma denies write, undo our temporary denial count */
 	if (correct_wcount)
@@ -1408,7 +1447,6 @@ unmap_and_free_vma:
 	unmap_region(mm, vma, prev, vma->vm_start, vma->vm_end);
 	charged = 0;
 free_vma:
-	uksm_remove_vma(vma);
 	kmem_cache_free(vm_area_cachep, vma);
 unacct_error:
 	if (charged)
@@ -1484,7 +1522,7 @@ full_search:
 		addr = vma->vm_end;
 	}
 }
-#endif
+#endif	
 
 void arch_unmap_area(struct mm_struct *mm, unsigned long addr)
 {
@@ -1645,7 +1683,7 @@ struct vm_area_struct *find_vma(struct mm_struct *mm, unsigned long addr)
 	if (mm) {
 		/* Check the cache first. */
 		/* (Cache hit rate is typically around 35%.) */
-		vma = mm->mmap_cache;
+		vma = ACCESS_ONCE(mm->mmap_cache);
 		if (!(vma && vma->vm_end > addr && vma->vm_start <= addr)) {
 			struct rb_node * rb_node;
 
@@ -1707,14 +1745,17 @@ static int acct_stack_growth(struct vm_area_struct *vma, unsigned long size, uns
 {
 	struct mm_struct *mm = vma->vm_mm;
 	struct rlimit *rlim = current->signal->rlim;
-	unsigned long new_start;
+	unsigned long new_start, actual_size;
 
 	/* address space limit tests */
 	if (!may_expand_vm(mm, grow))
 		return -ENOMEM;
 
 	/* Stack limit test */
-	if (size > ACCESS_ONCE(rlim[RLIMIT_STACK].rlim_cur))
+	actual_size = size;
+	if (size && (vma->vm_flags & (VM_GROWSUP | VM_GROWSDOWN)))
+		actual_size -= PAGE_SIZE;
+	if (actual_size > ACCESS_ONCE(rlim[RLIMIT_STACK].rlim_cur))
 		return -ENOMEM;
 
 	/* mlock limit tests */
@@ -1800,7 +1841,7 @@ int expand_upwards(struct vm_area_struct *vma, unsigned long address)
 		}
 	}
 	vma_unlock_anon_vma(vma);
-	khugepaged_enter_vma_merge(vma);
+	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	return error;
 }
 #endif /* CONFIG_STACK_GROWSUP || CONFIG_IA64 */
@@ -1851,13 +1892,32 @@ int expand_downwards(struct vm_area_struct *vma,
 		}
 	}
 	vma_unlock_anon_vma(vma);
-	khugepaged_enter_vma_merge(vma);
+	khugepaged_enter_vma_merge(vma, vma->vm_flags);
 	return error;
 }
 
+/*
+ * Note how expand_stack() refuses to expand the stack all the way to
+ * abut the next virtual mapping, *unless* that mapping itself is also
+ * a stack mapping. We want to leave room for a guard page, after all
+ * (the guard page itself is not added here, that is done by the
+ * actual page faulting logic)
+ *
+ * This matches the behavior of the guard page logic (see mm/memory.c:
+ * check_stack_guard_page()), which only allows the guard page to be
+ * removed under these circumstances.
+ */
 #ifdef CONFIG_STACK_GROWSUP
 int expand_stack(struct vm_area_struct *vma, unsigned long address)
 {
+	struct vm_area_struct *next;
+
+	address &= PAGE_MASK;
+	next = vma->vm_next;
+	if (next && next->vm_start == address + PAGE_SIZE) {
+		if (!(next->vm_flags & VM_GROWSUP))
+			return -ENOMEM;
+	}
 	return expand_upwards(vma, address);
 }
 
@@ -1880,6 +1940,14 @@ find_extend_vma(struct mm_struct *mm, unsigned long addr)
 #else
 int expand_stack(struct vm_area_struct *vma, unsigned long address)
 {
+	struct vm_area_struct *prev;
+
+	address &= PAGE_MASK;
+	prev = vma->vm_prev;
+	if (prev && prev->vm_end == address) {
+		if (!(prev->vm_flags & VM_GROWSDOWN))
+			return -ENOMEM;
+	}
 	return expand_downwards(vma, address);
 }
 
@@ -1946,7 +2014,7 @@ static void unmap_region(struct mm_struct *mm,
 	unmap_vmas(&tlb, vma, start, end, &nr_accounted, NULL);
 	vm_unacct_memory(nr_accounted);
 	free_pgtables(&tlb, vma, prev ? prev->vm_end : FIRST_USER_ADDRESS,
-				 next ? next->vm_start : 0);
+				 next ? next->vm_start : USER_PGTABLES_CEILING);
 	tlb_finish_mmu(&tlb, start, end);
 }
 
@@ -2037,8 +2105,6 @@ static int __split_vma(struct mm_struct * mm, struct vm_area_struct * vma,
 			((addr - new->vm_start) >> PAGE_SHIFT), new);
 	else
 		err = vma_adjust(vma, vma->vm_start, addr, vma->vm_pgoff, new);
-
-	uksm_vma_add_new(new);
 
 	/* Success. */
 	if (!err)
@@ -2213,7 +2279,6 @@ static unsigned long do_brk(unsigned long addr, unsigned long len)
 		return error;
 
 	flags = VM_DATA_DEFAULT_FLAGS | VM_ACCOUNT | mm->def_flags;
-	uksm_vm_flags_mod(&flags);
 
 	error = get_unmapped_area(NULL, addr, len, 0, MAP_FIXED);
 	if (error & ~PAGE_MASK)
@@ -2282,7 +2347,6 @@ static unsigned long do_brk(unsigned long addr, unsigned long len)
 	vma->vm_flags = flags;
 	vma->vm_page_prot = vm_get_page_prot(flags);
 	vma_link(mm, vma, prev, rb_link, rb_parent);
-	uksm_vma_add_new(vma);
 out:
 	perf_event_mmap(vma);
 	mm->total_vm += len >> PAGE_SHIFT;
@@ -2315,12 +2379,6 @@ void exit_mmap(struct mm_struct *mm)
 	/* mm's last user has gone, and its about to be pulled down */
 	mmu_notifier_release(mm);
 
-	/*
-	 * Taking write lock on mmap_sem does not harm others,
-	 * but it's crucial for uksm to avoid races.
-	 */
-	down_write(&mm->mmap_sem);
-
 	if (mm->locked_vm) {
 		vma = mm->mmap;
 		while (vma) {
@@ -2344,7 +2402,7 @@ void exit_mmap(struct mm_struct *mm)
 	unmap_vmas(&tlb, vma, 0, -1, &nr_accounted, NULL);
 	vm_unacct_memory(nr_accounted);
 
-	free_pgtables(&tlb, vma, FIRST_USER_ADDRESS, 0);
+	free_pgtables(&tlb, vma, FIRST_USER_ADDRESS, USER_PGTABLES_CEILING);
 	tlb_finish_mmu(&tlb, 0, -1);
 
 	/*
@@ -2353,11 +2411,6 @@ void exit_mmap(struct mm_struct *mm)
 	 */
 	while (vma)
 		vma = remove_vma(vma);
-
-	mm->mmap = NULL;
-	mm->mm_rb = RB_ROOT;
-	mm->mmap_cache = NULL;
-	up_write(&mm->mmap_sem);
 
 	BUG_ON(mm->nr_ptes > (FIRST_USER_ADDRESS+PMD_SIZE-1)>>PMD_SHIFT);
 }
@@ -2469,7 +2522,6 @@ struct vm_area_struct *copy_vma(struct vm_area_struct **vmap,
 			if (new_vma->vm_ops && new_vma->vm_ops->open)
 				new_vma->vm_ops->open(new_vma);
 			vma_link(mm, new_vma, prev, rb_link, rb_parent);
-			uksm_vma_add_new(new_vma);
 		}
 	}
 	return new_vma;
@@ -2575,10 +2627,10 @@ int install_special_mapping(struct mm_struct *mm,
 	ret = insert_vm_struct(mm, vma);
 	if (ret)
 		goto out;
+
 	mm->total_vm += len >> PAGE_SHIFT;
 
 	perf_event_mmap(vma);
-	uksm_vma_add_new(vma);
 
 	return 0;
 

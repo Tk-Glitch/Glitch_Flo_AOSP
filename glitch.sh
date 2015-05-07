@@ -6,6 +6,7 @@
 #					  	#
 # clean : clean the build directory       	#
 # cleank : clean the built kernel packages	#
+# cleanc : clean the compiler cache		#
 #################################################
 
 ############## Basic configuration ##############
@@ -19,8 +20,10 @@
 # Toolchain selection :
 # (default path is "kernel_tree_folder/../toolchains")
 # -------linux-x86
-	export CROSS_PREFIX="arm-eabi-5.0.git/bin/arm-eabi-"
-	#export CROSS_PREFIX="sabermod-androideabi-4.8.3/bin/arm-linux-androideabi-"
+	#export CROSS_PREFIX="arm-eabi-5.1.sm/bin/arm-eabi-"
+	export CROSS_PREFIX="Linaro-arm-eabi-5.1.0/bin/arm-eabi-"
+	#export CROSS_PREFIX="arm-eabi-5.1.sm/bin/arm-eabi-"
+	#export CROSS_PREFIX="arm-eabi-6.0.sm/bin/arm-eabi-"
 	#export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.03/bin/arm-cortex_a15-linux-gnueabihf-"
 
 # -------darwin-x86
@@ -93,8 +96,8 @@ sed "43s/.*/$releasenumber/g" tmp_$target_defconfig > release_$target_defconfig;
 mv release_$target_defconfig arch/arm/configs/release_$target_defconfig
 rm -f $KERNEL_DIR/tmp_$target_defconfig
 
-    mka -C "$KERNEL_DIR" O="$target_dir" release_$target_defconfig HOSTCC="$CCACHE gcc"
-    mka -C "$KERNEL_DIR" O="$target_dir" HOSTCC="$CCACHE gcc" CROSS_COMPILE="$CCACHE $CROSS_PREFIX" zImage modules
+    mka -C "$KERNEL_DIR" O="$target_dir" release_$target_defconfig HOSTCC="$CCACHE gcc -w -s -pipe -O2"
+    mka -C "$KERNEL_DIR" O="$target_dir" HOSTCC="$CCACHE gcc -w -s -pipe -O2" CROSS_COMPILE="$CCACHE $CROSS_PREFIX" zImage modules
 
 [[ -d release ]] || {
 	echo "-----------------------------------------"
@@ -144,7 +147,7 @@ mkdir -p $KERNEL_DIR/release/$target_device
 cd $KERNEL_DIR/release/aroma
 REL=Glitch-$target_name-r$counter$target_variant-full.zip
 
-	zip -q -r ${REL} boot config META-INF system pie_patch
+	zip -q -r ${REL} boot config META-INF system
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
@@ -194,10 +197,20 @@ if [ "$1" = cleank ] ; then
 
 else
 
+if [ "$1" = cleanc ] ; then
+    rm -fr "$KERNEL_DIR"/release/$target_device/*
+    rm -rf ../.ccache
+    echo "----------------------"
+    echo "Compiler cache cleaned"
+    echo "----------------------"
+
+else
+
 time {
 
     build $target_device
 
 }
+fi
 fi
 fi

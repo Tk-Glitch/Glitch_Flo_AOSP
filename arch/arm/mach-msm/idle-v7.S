@@ -110,7 +110,6 @@ ENTRY(msm_pm_collapse)
 	mov	r2, #1
 	and	r1, r2, r1, ASR #30 /* Check if the cache is write back */
 	orr	r1, r0, r1
-	and	r1, r1, #1
 	cmp	r1, #1
 	bne	skip
 	bl	v7_flush_dcache_all
@@ -242,7 +241,7 @@ ENTRY(msm_pm_collapse_exit)
 msm_pm_mapped_pa:
 	/* Switch to virtual */
 	ldr     r0, =msm_pm_pa_to_va
-	mov     pc, r0
+	ret     r0
 msm_pm_pa_to_va:
 	mcr     p15, 0, r1, c2, c0, 0 /* restore TTBR0 */
 	isb

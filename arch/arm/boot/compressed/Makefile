@@ -5,36 +5,29 @@
 #
 
 OBJS		=
-plus_sec := $(call as-instr,.arch_extension sec,+sec)
 
 # Ensure that MMCIF loader code appears early in the image
 # to minimise that number of bocks that have to be read in
 # order to load it.
 ifeq ($(CONFIG_ZBOOT_ROM_MMCIF),y)
-ifeq ($(CONFIG_ARCH_SH7372),y)
 OBJS		+= mmcif-sh7372.o
 endif
+
+# Ensure that SDHI loader code appears early in the image
+# to minimise that number of bocks that have to be read in
+# order to load it.
+ifeq ($(CONFIG_ZBOOT_ROM_SH_MOBILE_SDHI),y)
+OBJS		+= sdhi-shmobile.o
+OBJS		+= sdhi-sh7372.o
 endif
 
-AFLAGS_head.o := -DTEXT_OFFSET=$(TEXT_OFFSET)
-AFLAGS_head.o += -Wa,-march=armv7-a$(plus_sec)
-HEAD = head.o
-
-AFLAGS_misc.o +=-Wa,-march=armv7-a$(plus_sec)
-MISC = misc.o
-
-AFLAGS_decompress.o += -Wa,-march=armv7-a$(plus_sec)
+AFLAGS_head.o += -DTEXT_OFFSET=$(TEXT_OFFSET)
+HEAD	= head.o
+OBJS	+= misc.o decompress.o
 ifeq ($(CONFIG_KERNEL_LZ4),y)
 CFLAGS_decompress.o := -Os
 endif
-DECOMPRESS = decompress.o
-
 FONTC	= $(srctree)/drivers/video/console/font_acorn_8x8.c
-
-#AFLAGS_head.o += -DTEXT_OFFSET=$(TEXT_OFFSET)
-#HEAD	= head.o
-#OBJS	+= misc.o decompress.o
-#FONTC	= $(srctree)/drivers/video/console/font_acorn_8x8.c
 
 # string library code (-Os is enforced to keep it much smaller)
 OBJS		+= string.o
@@ -124,22 +117,24 @@ endif
 
 targets       := vmlinux vmlinux.lds \
 		 piggy.$(suffix_y) piggy.$(suffix_y).o \
-		 lib1funcs.o lib1funcs.S font.o font.c head.o misc.o decompress.o $(OBJS)
+		 lib1funcs.o lib1funcs.S ashldi3.o ashldi3.S \
+		 bswapsdi2.S font.o font.c head.o misc.o $(OBJS)
 
 # Make sure files are removed during clean
-extra-y       += piggy.gzip piggy.lzo piggy.lzma  piggy.xzkern  lib1funcs.S $(libfdt) $(libfdt_hdrs)
+extra-y       += piggy.gzip piggy.lzo piggy.lzma piggy.xzkern \
+		 lib1funcs.S ashldi3.S bswapsdi2.S $(libfdt) $(libfdt_hdrs)
 
 ifeq ($(CONFIG_FUNCTION_TRACER),y)
 ORIG_CFLAGS := $(KBUILD_CFLAGS)
 KBUILD_CFLAGS = $(subst -pg, , $(ORIG_CFLAGS))
 endif
 
-ccflags-y := -fpic -fno-builtin -I$(obj)
-asflags-y := -Wa,-march=all
+ccflags-y := -fpic -fno-builtin -I$(obj) $(DISABLE_LTO)
+asflags-y :=
 
 # Supply kernel BSS size to the decompressor via a linker symbol.
-SIZEBIN := $(if $(shell which $(CROSS_COMPILE)size),$(CROSS_COMPILE)size,size)
-KBSS_SZ = $(shell $(SIZEBIN) $(obj)/../../../../vmlinux | awk 'END{print $$3}')
+KBSS_SZ = $(shell $(CROSS_COMPILE)size $(obj)/../../../../vmlinux | \
+		awk 'END{print $$3}')
 LDFLAGS_vmlinux = --defsym _kernel_bss_size=$(KBSS_SZ)
 # Supply ZRELADDR to the decompressor via a linker symbol.
 ifneq ($(CONFIG_AUTO_ZRELADDR),y)
@@ -147,9 +142,6 @@ LDFLAGS_vmlinux += --defsym zreladdr=$(ZRELADDR)
 endif
 ifeq ($(CONFIG_CPU_ENDIAN_BE8),y)
 LDFLAGS_vmlinux += --be8
-endif
-ifneq ($(PARAMS_PHYS),)
-LDFLAGS_vmlinux += --defsym params_phys=$(PARAMS_PHYS)
 endif
 # ?
 LDFLAGS_vmlinux += -p
@@ -161,10 +153,21 @@ LDFLAGS_vmlinux += -X
 LDFLAGS_vmlinux += -T
 
 # For __aeabi_uidivmod
-AFLAGS_lib1funcs.o +=-Wa,-march=armv7-a$(plus_sec)
 lib1funcs = $(obj)/lib1funcs.o
 
 $(obj)/lib1funcs.S: $(srctree)/arch/$(SRCARCH)/lib/lib1funcs.S
+	$(call cmd,shipped)
+
+# For __aeabi_llsl
+ashldi3 = $(obj)/ashldi3.o
+
+$(obj)/ashldi3.S: $(srctree)/arch/$(SRCARCH)/lib/ashldi3.S
+	$(call cmd,shipped)
+
+# For __bswapsi2, __bswapdi2
+bswapsdi2 = $(obj)/bswapsdi2.o
+
+$(obj)/bswapsdi2.S: $(srctree)/arch/$(SRCARCH)/lib/bswapsdi2.S
 	$(call cmd,shipped)
 
 # We need to prevent any GOTOFF relocs being used with references
@@ -179,19 +182,21 @@ bad_syms=$$($(CROSS_COMPILE)nm $@ | sed -n 's/^.\{8\} [bc] \(.*\)/\1/p') && \
 [ -z "$$bad_syms" ] || \
   ( echo "following symbols must have non local/private scope:" >&2; \
     echo "$$bad_syms" >&2; rm -f $@; false )
-# For __aeabi_llsl
-AFLAGS_ashldi3.o +=-Wa,-march=armv7-a$(plus_sec)
-ashldi3 = $(obj)/ashldi3.o
 
-$(obj)/ashldi3.S: $(srctree)/arch/$(SRCARCH)/lib/ashldi3.S FORCE
-	$(call cmd,shipped)
+check_for_multiple_zreladdr = \
+if [ $(words $(ZRELADDR)) -gt 1 -a "$(CONFIG_AUTO_ZRELADDR)" = "" ]; then \
+	echo 'multiple zreladdrs: $(ZRELADDR)'; \
+	echo 'This needs CONFIG_AUTO_ZRELADDR to be set'; \
+	false; \
+fi
 
-$(obj)/vmlinux: $(obj)/vmlinux.lds $(obj)/$(HEAD) $(obj)/$(MISC) $(obj)/$(DECOMPRESS) $(obj)/piggy.$(suffix_y).o \
-	 	$(addprefix $(obj)/, $(OBJS)) $(lib1funcs) $(ashldi3) FORCE
+$(obj)/vmlinux: $(obj)/vmlinux.lds $(obj)/$(HEAD) $(obj)/piggy.$(suffix_y).o \
+		$(addprefix $(obj)/, $(OBJS)) $(lib1funcs) $(ashldi3) \
+		$(bswapsdi2) FORCE
+	@$(check_for_multiple_zreladdr)
 	$(call if_changed,ld)
 	@$(check_for_bad_syms)
 
-AFLAGS_piggy.$(suffix_y).o += -Wa,-march=armv7-a$(plus_sec)
 $(obj)/piggy.$(suffix_y): $(obj)/../Image FORCE
 	$(call if_changed,$(suffix_y))
 

@@ -1259,7 +1259,7 @@ int sdio_reset_comm(struct mmc_card *card)
 		goto err;
 	}
 
-	err = mmc_send_io_op_cond(host, host->ocr, &ocr);
+	err = mmc_sdio_init_card(host, host->ocr, card, 0);
 	if (err)
 		goto err;
 

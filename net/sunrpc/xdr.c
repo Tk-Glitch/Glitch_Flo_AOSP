@@ -233,10 +233,13 @@ _shift_data_right_pages(struct page **pages, size_t pgto_base,
 		pgfrom_base -= copy;
 
 		vto = kmap_atomic(*pgto);
-		vfrom = kmap_atomic(*pgfrom);
-		memmove(vto + pgto_base, vfrom + pgfrom_base, copy);
+		if (*pgto != *pgfrom) {
+			vfrom = kmap_atomic(*pgfrom);
+			memcpy(vto + pgto_base, vfrom + pgfrom_base, copy);
+			kunmap_atomic(vfrom);
+		} else
+			memmove(vto + pgto_base, vto + pgfrom_base, copy);
 		flush_dcache_page(*pgto);
-		kunmap_atomic(vfrom);
 		kunmap_atomic(vto);
 
 	} while ((len -= copy) != 0);
@@ -880,8 +883,6 @@ int read_bytes_from_xdr_buf(struct xdr_buf *buf, unsigned int base, void *obj, u
 {
 	struct xdr_buf subbuf;
 	int status;
-	subbuf.pages = 0;
-	subbuf.page_base = 0; 
 
 	status = xdr_buf_subsegment(buf, &subbuf, base, len);
 	if (status != 0)
@@ -913,8 +914,6 @@ int write_bytes_to_xdr_buf(struct xdr_buf *buf, unsigned int base, void *obj, un
 {
 	struct xdr_buf subbuf;
 	int status;
-	subbuf.pages = 0;
-	subbuf.page_base = 0; 
 
 	status = xdr_buf_subsegment(buf, &subbuf, base, len);
 	if (status != 0)
@@ -954,8 +953,6 @@ EXPORT_SYMBOL_GPL(xdr_encode_word);
 int xdr_buf_read_netobj(struct xdr_buf *buf, struct xdr_netobj *obj, unsigned int offset)
 {
 	struct xdr_buf subbuf;
-	subbuf.pages = 0;
-	subbuf.page_base = 0; 
 
 	if (xdr_decode_word(buf, offset, &obj->len))
 		return -EFAULT;

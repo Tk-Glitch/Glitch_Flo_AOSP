@@ -501,6 +501,7 @@ void __init __configure_pll(struct pll_config *config,
 	writel_relaxed(regval, PLL_CONFIG_REG(regs));
 }
 
+//GPU_OC
 void configure_pllOC(struct pll_config *config,
 		struct pll_config_regs *regs, u32 ena_fsm_mode)
 {

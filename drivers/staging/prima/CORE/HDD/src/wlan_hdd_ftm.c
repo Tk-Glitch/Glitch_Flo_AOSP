@@ -2434,7 +2434,7 @@ void wlan_hdd_process_ftm_cmd
     ENTER();
 
     //Delay to fix NV write failure on JB
-    vos_busy_wait(10000); //10ms
+    mdelay(10); //10ms
 
     if (!pRequestBuf) {
 

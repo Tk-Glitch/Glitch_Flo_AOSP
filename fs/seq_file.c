@@ -36,10 +36,15 @@ static void *seq_buf_alloc(unsigned long size)
 {
 	void *buf;
 
-	if (size > PAGE_SIZE)
+	if (size > PAGE_SIZE) {
 		buf = vmalloc(size);
-	else
-		buf = kmalloc(size, GFP_KERNEL | __GFP_NOWARN);
+	} else {
+		/*
+		 * __GFP_NORETRY to avoid oom-killings with high-order allocations -
+		 * it's better to fall back to vmalloc() than to kill things.
+		 */
+		buf = kmalloc(size, GFP_KERNEL | __GFP_NORETRY | __GFP_NOWARN);
+	}
 
 	return buf;
 }
@@ -320,9 +325,9 @@ loff_t seq_lseek(struct file *file, loff_t offset, int origin)
 	mutex_lock(&m->lock);
 	m->version = file->f_version;
 	switch (origin) {
-		case 1:
+		case SEEK_CUR:
 			offset += file->f_pos;
-		case 0:
+		case SEEK_SET:
 			if (offset < 0)
 				break;
 			retval = offset;

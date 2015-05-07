@@ -75,14 +75,6 @@ run_program("/tmp/compatibility2.sh");
 endif;
 endif;
 
-if
-   file_getprop("/tmp/aroma/misc.prop","item.0.7") == "1"
-     then
-   ui_print("Installing PIE patch");
-package_extract_dir("pie_patch", "/system");
-set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/linker");
-endif;
-
 package_extract_dir("boot", "/tmp");
 set_perm(0, 0, 0777, "/tmp/max_oc.sh");
 set_perm(0, 0, 0777, "/tmp/edit_ramdisk.sh");
@@ -127,14 +119,6 @@ if
    ui_print("Pray Cthulhu to get your settings backup in place..");
 run_program("/tmp/busybox", "cp", "/sdcard/glitch-settings.conf", "/system/etc/glitch-settings.conf");
 set_perm(0, 0, 0666, "/system/etc/glitch-settings.conf");
-endif;
-
-if
-   file_getprop("/tmp/aroma/galready.prop","item.0.2") == "1"
-     then
-   ui_print("Installing PIE patch");
-package_extract_dir("pie_patch", "/system");
-set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/linker");
 endif;
 
 ui_print("Do some useless cleaning in case something didn't went wrong...");

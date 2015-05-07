@@ -265,6 +265,8 @@ static int input_get_disposition(struct input_dev *dev,
 	case EV_SYN:
 		switch (code) {
 		case SYN_CONFIG:
+		case SYN_TIME_SEC:
+		case SYN_TIME_NSEC:
 			disposition = INPUT_PASS_TO_ALL;
 			break;
 
@@ -1784,6 +1786,10 @@ void input_set_capability(struct input_dev *dev, unsigned int type, unsigned int
 		break;
 
 	case EV_ABS:
+		input_alloc_absinfo(dev);
+		if (!dev->absinfo)
+			return;
+
 		__set_bit(code, dev->absbit);
 		break;
 

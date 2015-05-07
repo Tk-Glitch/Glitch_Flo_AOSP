@@ -1,26 +1,26 @@
 config ARM
 	bool
 	default y
-	select HAVE_AOUT
 	select HAVE_DMA_API_DEBUG
 	select HAVE_IDE if PCI || ISA || PCMCIA
 	select HAVE_DMA_CONTIGUOUS if (CPU_V6 || CPU_V6K || CPU_V7)
 	select HAVE_DMA_ATTRS
 	select HAVE_MEMBLOCK
+	select ARCH_USE_BUILTIN_BSWAP
 	select RTC_LIB
 	select SYS_SUPPORTS_APM_EMULATION
 	select GENERIC_ATOMIC64 if (CPU_V6 || !CPU_32v6K || !AEABI)
 	select HAVE_OPROFILE if (HAVE_PERF_EVENTS)
 	select HAVE_ARCH_JUMP_LABEL if !XIP_KERNEL
-	#select HAVE_ARCH_KGDB
+	select HAVE_ARCH_KGDB
 	select HAVE_KPROBES if !XIP_KERNEL
 	select HAVE_KRETPROBES if (HAVE_KPROBES)
-	#select HAVE_FUNCTION_TRACER if (!XIP_KERNEL)
-	#select HAVE_FTRACE_MCOUNT_RECORD if (!XIP_KERNEL)
-	#select HAVE_DYNAMIC_FTRACE if (!XIP_KERNEL)
-	#select HAVE_FUNCTION_GRAPH_TRACER if (!THUMB2_KERNEL)
+	select HAVE_FUNCTION_TRACER if (!XIP_KERNEL)
+	select HAVE_FTRACE_MCOUNT_RECORD if (!XIP_KERNEL)
+	select HAVE_DYNAMIC_FTRACE if (!XIP_KERNEL)
+	select HAVE_EFFICIENT_UNALIGNED_ACCESS if (CPU_V6 || CPU_V6K || CPU_V7) && MMU
+	select HAVE_FUNCTION_GRAPH_TRACER if (!THUMB2_KERNEL)
 	select ARCH_BINFMT_ELF_RANDOMIZE_PIE
-	select HAVE_EFFICIENT_UNALIGNED_ACCESS
 	select HAVE_GENERIC_DMA_COHERENT
 	select HAVE_KERNEL_GZIP
 	select HAVE_KERNEL_LZO
@@ -40,6 +40,9 @@ config ARM
 	select CPU_PM if (SUSPEND || CPU_IDLE)
 	select GENERIC_PCI_IOMAP
 	select HAVE_BPF_JIT if NET
+	select GENERIC_STRNCPY_FROM_USER
+	select GENERIC_STRNLEN_USER
+	select DCACHE_WORD_ACCESS if HAVE_EFFICIENT_UNALIGNED_ACCESS
 	help
 	  The ARM series is a line of low-power-consumption RISC chip designs
 	  licensed by ARM Ltd and targeted at embedded applications and
@@ -578,7 +581,7 @@ config ARCH_IXP4XX
 	select ARCH_HAS_DMA_SET_COHERENT_MASK
 	select CLKSRC_MMIO
 	select CPU_XSCALE
-	select GENERIC_GPIO
+	select ARCH_REQUIRE_GPIOLIB
 	select GENERIC_CLOCKEVENTS
 	select MIGHT_HAVE_PCI
 	select NEED_MACH_IO_H
@@ -601,6 +604,7 @@ config ARCH_KIRKWOOD
 	bool "Marvell Kirkwood"
 	select CPU_FEROCEON
 	select PCI
+	select PCI_QUIRKS
 	select ARCH_REQUIRE_GPIOLIB
 	select GENERIC_CLOCKEVENTS
 	select NEED_MACH_IO_H
@@ -1444,6 +1448,16 @@ config PL310_ERRATA_769419
 	  on systems with an outer cache, the store buffer is drained
 	  explicitly.
 
+config ARM_ERRATA_775420
+       bool "ARM errata: A data cache maintenance operation which aborts, might lead to deadlock"
+       depends on CPU_V7
+       help
+	 This option enables the workaround for the 775420 Cortex-A9 (r2p2,
+	 r2p6,r2p8,r2p10,r3p0) erratum. In case a date cache maintenance
+	 operation aborts with MMU exception, it might cause the processor
+	 to deadlock. This workaround puts DSB before executing ISB if
+	 an abort may occur on cache maintenance.
+
 config KSAPI
         tristate "KSAPI support (EXPERIMENTAL)"
 	depends on ARCH_MSM_SCORPION || ARCH_MSM_KRAIT
@@ -1586,7 +1600,6 @@ config ARM_CPU_TOPOLOGY
 config SCHED_MC
 	bool "Multi-core scheduler support"
 	depends on ARM_CPU_TOPOLOGY
-	default y
 	help
 	  Multi-core scheduler support improves the CPU scheduler's decision
 	  making when dealing with multi-core CPU chips at a cost of slightly
@@ -1595,7 +1608,6 @@ config SCHED_MC
 config SCHED_SMT
 	bool "SMT scheduler support"
 	depends on ARM_CPU_TOPOLOGY
-	default y
 	help
 	  Improves the CPU scheduler's decision making when dealing with
 	  MultiThreading at a cost of slightly increased overhead in some
@@ -2004,6 +2016,21 @@ config USE_OF
 	help
 	  Include support for flattened device tree machine descriptions.
 
+config BUILD_ARM_APPENDED_DTB_IMAGE
+	bool "Build a concatenated zImage/dtb by default"
+	depends on OF
+	help
+	  Enabling this option will cause a concatenated zImage and list of
+	  DTBs to be built by default (instead of a standalone zImage.)
+	  The image will built in arch/arm/boot/zImage-dtb
+
+config BUILD_ARM_APPENDED_DTB_IMAGE_NAMES
+	string "Default dtb names"
+	depends on BUILD_ARM_APPENDED_DTB_IMAGE
+	help
+	  Space separated list of names of dtbs to append when
+	  building a concatenated zImage-dtb.
+
 # Compressed boot loader in ROM.  Yes, we really want to ask about
 # TEXT and BSS so we preserve their values in the config files.
 config ZBOOT_ROM_TEXT
@@ -2246,6 +2273,7 @@ source "drivers/cpufreq/Kconfig"
 config CPU_FREQ_IMX
 	tristate "CPUfreq driver for i.MX CPUs"
 	depends on ARCH_MXC && CPU_FREQ
+	select CPU_FREQ_TABLE
 	help
 	  This enables the CPUfreq driver for i.MX CPUs.
 
@@ -2398,6 +2426,12 @@ config NEON
 	help
 	  Say Y to include support code for NEON, the ARMv7 Advanced SIMD
 	  Extension.
+
+config KERNEL_MODE_NEON
+	bool "Support for NEON in kernel mode"
+	depends on NEON && AEABI
+	help
+	  Say Y to include support for NEON in kernel mode.
 
 endmenu
 

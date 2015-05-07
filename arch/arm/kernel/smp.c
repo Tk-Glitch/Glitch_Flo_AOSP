@@ -25,7 +25,6 @@
 #include <linux/percpu.h>
 #include <linux/clockchips.h>
 #include <linux/completion.h>
-#include <linux/cpufreq.h>
 
 #include <linux/atomic.h>
 #include <asm/cacheflush.h>
@@ -33,7 +32,6 @@
 #include <asm/cputype.h>
 #include <asm/exception.h>
 #include <asm/idmap.h>
-
 #include <asm/topology.h>
 #include <asm/mmu_context.h>
 #include <asm/pgtable.h>
@@ -160,11 +158,8 @@ int __cpu_disable(void)
 	/*
 	 * Flush user cache and TLB mappings, and then remove this CPU
 	 * from the vm mask set of all processes.
-	 *
-	 * Caches are flushed to the Level of Unification Inner Shareable
-	 * to write-back dirty lines to unified caches shared by all CPUs.
 	 */
-	flush_cache_louis();
+	flush_cache_all();
 	local_flush_tlb_all();
 
 	read_lock(&tasklist_lock);
@@ -254,18 +249,24 @@ static void __cpuinit smp_store_cpu_info(unsigned int cpuid)
 asmlinkage void __cpuinit secondary_start_kernel(void)
 {
 	struct mm_struct *mm = &init_mm;
-	unsigned int cpu = smp_processor_id();
+	unsigned int cpu;
+
+	/*
+	 * The identity mapping is uncached (strongly ordered), so
+	 * switch away from it before attempting any exclusive accesses.
+	 */
+	cpu_switch_mm(mm->pgd, mm);
+	enter_lazy_tlb(mm, current);
+	local_flush_tlb_all();
 
 	/*
 	 * All kernel threads share the same mm context; grab a
 	 * reference and switch to it.
 	 */
+	cpu = smp_processor_id();
 	atomic_inc(&mm->mm_count);
 	current->active_mm = mm;
 	cpumask_set_cpu(cpu, mm_cpumask(mm));
-	cpu_switch_mm(mm->pgd, mm);
-	enter_lazy_tlb(mm, current);
-	local_flush_tlb_all();
 
 	pr_debug("CPU%u: Booted secondary processor\n", cpu);
 
@@ -661,9 +662,9 @@ void smp_send_stop(void)
 		smp_cross_call(&mask, IPI_CPU_STOP);
 
 	/* Wait up to one second for other CPUs to stop */
-	timeout = MSEC_PER_SEC;
+	timeout = USEC_PER_SEC;
 	while (num_active_cpus() > 1 && timeout--)
-		mdelay(1);
+		udelay(1);
 
 	if (num_active_cpus() > 1)
 		pr_warning("SMP: failed to stop secondary CPUs\n");
@@ -678,57 +679,3 @@ int setup_profiling_timer(unsigned int multiplier)
 {
 	return -EINVAL;
 }
-
-#ifdef CONFIG_CPU_FREQ
-
-static DEFINE_PER_CPU(unsigned long, l_p_j_ref);
-static DEFINE_PER_CPU(unsigned long, l_p_j_ref_freq);
-static unsigned long global_l_p_j_ref;
-static unsigned long global_l_p_j_ref_freq;
-
-static int cpufreq_callback(struct notifier_block *nb,
-					unsigned long val, void *data)
-{
-	struct cpufreq_freqs *freq = data;
-	int cpu = freq->cpu;
-
-	if (freq->flags & CPUFREQ_CONST_LOOPS)
-		return NOTIFY_OK;
-
-	if (!per_cpu(l_p_j_ref, cpu)) {
-		per_cpu(l_p_j_ref, cpu) =
-			per_cpu(cpu_data, cpu).loops_per_jiffy;
-		per_cpu(l_p_j_ref_freq, cpu) = freq->old;
-		if (!global_l_p_j_ref) {
-			global_l_p_j_ref = loops_per_jiffy;
-			global_l_p_j_ref_freq = freq->old;
-		}
-	}
-
-	if ((val == CPUFREQ_PRECHANGE  && freq->old < freq->new) ||
-	    (val == CPUFREQ_POSTCHANGE && freq->old > freq->new) ||
-	    (val == CPUFREQ_RESUMECHANGE || val == CPUFREQ_SUSPENDCHANGE)) {
-		loops_per_jiffy = cpufreq_scale(global_l_p_j_ref,
-						global_l_p_j_ref_freq,
-						freq->new);
-		per_cpu(cpu_data, cpu).loops_per_jiffy =
-			cpufreq_scale(per_cpu(l_p_j_ref, cpu),
-					per_cpu(l_p_j_ref_freq, cpu),
-					freq->new);
-	}
-	return NOTIFY_OK;
-}
-
-static struct notifier_block cpufreq_notifier = {
-	.notifier_call  = cpufreq_callback,
-};
-
-static int __init register_cpufreq_notifier(void)
-{
-	return cpufreq_register_notifier(&cpufreq_notifier,
-						CPUFREQ_TRANSITION_NOTIFIER);
-}
-core_initcall(register_cpufreq_notifier);
-
-#endif
- 

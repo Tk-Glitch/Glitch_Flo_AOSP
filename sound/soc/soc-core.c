@@ -1578,7 +1578,7 @@ static void snd_soc_instantiate_card(struct snd_soc_card *card)
 	struct snd_soc_dai_link *dai_link;
 	int ret, i, order;
 
-	mutex_lock(&card->mutex);
+	mutex_lock_nested(&card->mutex, SND_SOC_CARD_CLASS_INIT);
 
 	if (card->instantiated) {
 		mutex_unlock(&card->mutex);
@@ -3242,6 +3242,7 @@ int snd_soc_register_card(struct snd_soc_card *card)
 	card->instantiated = 0;
 	mutex_init(&card->mutex);
 	mutex_init(&card->dpcm_mutex);
+	mutex_init(&card->dapm_mutex);
 	mutex_init(&card->dapm_power_mutex);
 
 	mutex_lock(&client_mutex);

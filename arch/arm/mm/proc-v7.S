@@ -26,7 +26,7 @@
 #endif
 
 ENTRY(cpu_v7_proc_init)
-	mov	pc, lr
+	ret	lr
 ENDPROC(cpu_v7_proc_init)
 
 ENTRY(cpu_v7_proc_fin)
@@ -34,7 +34,7 @@ ENTRY(cpu_v7_proc_fin)
 	bic	r0, r0, #0x1000			@ ...i............
 	bic	r0, r0, #0x0006			@ .............ca.
 	mcr	p15, 0, r0, c1, c0, 0		@ disable caches
-	mov	pc, lr
+	ret	lr
 ENDPROC(cpu_v7_proc_fin)
 
 /*
@@ -60,7 +60,7 @@ ENTRY(cpu_v7_reset)
 	mcr     p15, 0, ip, c7, c5, 6           @ flush BTC
 	dsb
 	isb
-	mov	pc, r0
+	bx	r0
 ENDPROC(cpu_v7_reset)
 	.popsection
 
@@ -74,7 +74,7 @@ ENDPROC(cpu_v7_reset)
 ENTRY(cpu_v7_do_idle)
 	dsb					@ WFI may enter a low-power mode
 	wfi
-	mov	pc, lr
+	ret	lr
 ENDPROC(cpu_v7_do_idle)
 
 ENTRY(cpu_v7_dcache_clean_area)
@@ -86,7 +86,7 @@ ENTRY(cpu_v7_dcache_clean_area)
 	bhi	1b
 	dsb
 #endif
-	mov	pc, lr
+	ret	lr
 ENDPROC(cpu_v7_dcache_clean_area)
 
 	string	cpu_v7_name, "ARMv7 Processor"
@@ -175,7 +175,7 @@ __v7_ca15mp_setup:
 __v7_setup:
 	adr	r12, __v7_setup_stack		@ the local stack
 	stmia	r12, {r0-r5, r7, r9, r11, lr}
-	bl      v7_flush_dcache_louis
+	bl	v7_flush_dcache_all
 	ldmia	r12, {r0-r5, r7, r9, r11, lr}
 
 	mrc	p15, 0, r0, c0, c0, 0		@ read main ID register
@@ -249,7 +249,6 @@ __v7_setup:
 
 3:	mov	r10, #0
 	mcr	p15, 0, r10, c7, c5, 0		@ I+BTB cache invalidate
-	dsb
 #ifdef CONFIG_MMU
 	mcr	p15, 0, r10, c8, c7, 0		@ invalidate I + D TLBs
 	v7_ttb_setup r10, r4, r8, r5		@ TTBCR, TTBRx setup
@@ -258,6 +257,7 @@ __v7_setup:
 	mcr	p15, 0, r5, c10, c2, 0		@ write PRRR
 	mcr	p15, 0, r6, c10, c2, 1		@ write NMRR
 #endif
+	dsb					@ Complete invalidations
 
 #if defined(CONFIG_ARCH_MSM_SCORPION) && !defined(CONFIG_MSM_SMP)
 	mov     r0, #0x33
@@ -308,7 +308,7 @@ __v7_setup:
 	bic	r0, r0, r5			@ clear bits them
 	orr	r0, r0, r6			@ set them
  THUMB(	orr	r0, r0, #1 << 30	)	@ Thumb exceptions
-	mov	pc, lr				@ return to head.S:__ret
+	ret	lr				@ return to head.S:__ret
 ENDPROC(__v7_setup)
 
 	.align	2

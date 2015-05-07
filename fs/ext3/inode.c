@@ -218,7 +218,8 @@ void ext3_evict_inode (struct inode *inode)
 	 */
 	if (inode->i_nlink && ext3_should_journal_data(inode) &&
 	    EXT3_SB(inode->i_sb)->s_journal &&
-	    (S_ISLNK(inode->i_mode) || S_ISREG(inode->i_mode))) {
+	    (S_ISLNK(inode->i_mode) || S_ISREG(inode->i_mode)) &&
+	    inode->i_ino != EXT3_JOURNAL_INO) {
 		tid_t commit_tid = atomic_read(&ei->i_datasync_tid);
 		journal_t *journal = EXT3_SB(inode->i_sb)->s_journal;
 
@@ -1856,8 +1857,7 @@ static int ext3_releasepage(struct page *page, gfp_t wait)
  * VFS code falls back into buffered path in that case so we are safe.
  */
 static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
-			const struct iovec *iov, loff_t offset,
-			unsigned long nr_segs)
+			struct iov_iter *iter, loff_t offset)
 {
 	struct file *file = iocb->ki_filp;
 	struct inode *inode = file->f_mapping->host;
@@ -1865,10 +1865,10 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
 	handle_t *handle;
 	ssize_t ret;
 	int orphan = 0;
-	size_t count = iov_length(iov, nr_segs);
+	size_t count = iov_iter_count(iter);
 	int retries = 0;
 
-	trace_ext3_direct_IO_enter(inode, offset, iov_length(iov, nr_segs), rw);
+	trace_ext3_direct_IO_enter(inode, offset, count, rw);
 
 	if (rw == WRITE) {
 		loff_t final_size = offset + count;
@@ -1892,15 +1892,14 @@ static ssize_t ext3_direct_IO(int rw, struct kiocb *iocb,
 	}
 
 retry:
-	ret = blockdev_direct_IO(rw, iocb, inode, iov, offset, nr_segs,
-				 ext3_get_block);
+	ret = blockdev_direct_IO(rw, iocb, inode, iter, offset, ext3_get_block);
 	/*
 	 * In case of error extending write may have instantiated a few
 	 * blocks outside i_size. Trim these off again.
 	 */
 	if (unlikely((rw & WRITE) && ret < 0)) {
 		loff_t isize = i_size_read(inode);
-		loff_t end = offset + iov_length(iov, nr_segs);
+		loff_t end = offset + count;
 
 		if (end > isize)
 			ext3_truncate_failed_direct_write(inode);
@@ -1943,8 +1942,7 @@ retry:
 			ret = err;
 	}
 out:
-	trace_ext3_direct_IO_exit(inode, offset,
-				iov_length(iov, nr_segs), rw, ret);
+	trace_ext3_direct_IO_exit(inode, offset, count, rw, ret);
 	return ret;
 }
 
@@ -3068,6 +3066,8 @@ static int ext3_do_update_inode(handle_t *handle,
 	struct ext3_inode_info *ei = EXT3_I(inode);
 	struct buffer_head *bh = iloc->bh;
 	int err = 0, rc, block;
+	int need_datasync = 0;
+	__le32 disksize;
 
 again:
 	/* we can't allow multiple procs in here at once, its a bit racey */
@@ -3105,7 +3105,11 @@ again:
 		raw_inode->i_gid_high = 0;
 	}
 	raw_inode->i_links_count = cpu_to_le16(inode->i_nlink);
-	raw_inode->i_size = cpu_to_le32(ei->i_disksize);
+	disksize = cpu_to_le32(ei->i_disksize);
+	if (disksize != raw_inode->i_size) {
+		need_datasync = 1;
+		raw_inode->i_size = disksize;
+	}
 	raw_inode->i_atime = cpu_to_le32(inode->i_atime.tv_sec);
 	raw_inode->i_ctime = cpu_to_le32(inode->i_ctime.tv_sec);
 	raw_inode->i_mtime = cpu_to_le32(inode->i_mtime.tv_sec);
@@ -3121,8 +3125,11 @@ again:
 	if (!S_ISREG(inode->i_mode)) {
 		raw_inode->i_dir_acl = cpu_to_le32(ei->i_dir_acl);
 	} else {
-		raw_inode->i_size_high =
-			cpu_to_le32(ei->i_disksize >> 32);
+		disksize = cpu_to_le32(ei->i_disksize >> 32);
+		if (disksize != raw_inode->i_size_high) {
+			raw_inode->i_size_high = disksize;
+			need_datasync = 1;
+		}
 		if (ei->i_disksize > 0x7fffffffULL) {
 			struct super_block *sb = inode->i_sb;
 			if (!EXT3_HAS_RO_COMPAT_FEATURE(sb,
@@ -3175,6 +3182,8 @@ again:
 	ext3_clear_inode_state(inode, EXT3_STATE_NEW);
 
 	atomic_set(&ei->i_sync_tid, handle->h_transaction->t_tid);
+	if (need_datasync)
+		atomic_set(&ei->i_datasync_tid, handle->h_transaction->t_tid);
 out_brelse:
 	brelse (bh);
 	ext3_std_error(inode->i_sb, err);
