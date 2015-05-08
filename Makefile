@@ -382,7 +382,7 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -std=gnu89
 
 # arter97's optimizations
-KBUILD_CFLAGS	+= -s -pipe -fno-pic -O2
+KBUILD_CFLAGS	+= -s -fno-pic -O2
 # -Wno-unused
 KBUILD_CFLAGS	+= -Wno-unused
 # L1/L2 cache size parameters by @JustArchi

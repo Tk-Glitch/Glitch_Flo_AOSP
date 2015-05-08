@@ -38,7 +38,11 @@ max_oc3="max_oc3="$MAXF_CPU3"000";
 
 null="abc"
 
+if [ "$PERMISSIVE" == "1" ] ; then
+echo "cmdline = console=ttyHSL0,115200,n8 androidboot.hardware=flo user_debug=31 msm_rtb.filter=0x3F ehci-hcd.park=3 vmalloc=340M enforcing=0" $l2_opt $vdd_uv $max_oc0 $max_oc1 $max_oc2 $max_oc3 $min_clock $null >> /tmp/cmdline.cfg
+else
 echo "cmdline = console=ttyHSL0,115200,n8 androidboot.hardware=flo user_debug=31 msm_rtb.filter=0x3F ehci-hcd.park=3 vmalloc=340M" $l2_opt $vdd_uv $max_oc0 $max_oc1 $max_oc2 $max_oc3 $min_clock $null >> /tmp/cmdline.cfg
+fi
 
 else
 
