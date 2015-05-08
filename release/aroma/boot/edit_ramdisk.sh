@@ -33,6 +33,39 @@ if [ ! -f "/tmp/ramdisk/fstab.orig" ]; then
 mv /tmp/ramdisk/fstab.flo /tmp/ramdisk/fstab.orig;
 fi;
 
+#Check for F2FS and change fstab accordingly in ramdisk
+mount /cache 2> /dev/null
+mount /data 2> /dev/null
+mount /system 2> /dev/null
+
+mount | grep -q 'cache type f2fs'
+CACHE_F2FS=$?
+mount | grep -q 'data type f2fs'
+DATA_F2FS=$?
+mount | grep -q 'system type f2fs'
+SYSTEM_F2FS=$?
+
+#System partition
+if [ $SYSTEM_F2FS -eq 0 ]; then
+	sed -i "/system.*ext4/d" /tmp/fstab
+else
+	sed -i "/system.*f2fs/d" /tmp/fstab
+fi
+
+#Cache partition
+if [ $CACHE_F2FS -eq 0 ]; then
+	sed -i "/cache.*ext4/d" /tmp/fstab
+else
+	sed -i "/cache.*f2fs/d" /tmp/fstab
+fi
+
+#Data partition
+if [ $DATA_F2FS -eq 0 ]; then
+	sed -i "/data.*ext4/d" /tmp/fstab
+else
+	sed -i "/data.*f2fs/d" /tmp/fstab
+fi
+
 mv /tmp/fstab /tmp/ramdisk/fstab.flo;
 
 #repack
