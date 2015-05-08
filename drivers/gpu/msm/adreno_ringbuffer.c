@@ -213,7 +213,7 @@ err:
  *
  * Load the pm4 ucode from @start at @addr.
  */
-static int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device,
+inline int adreno_ringbuffer_load_pm4_ucode(struct kgsl_device *device,
 			unsigned int start, unsigned int end, unsigned int addr)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -267,7 +267,7 @@ err:
  *
  * Load the pfp ucode from @start at @addr.
  */
-static int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
+inline int adreno_ringbuffer_load_pfp_ucode(struct kgsl_device *device,
 			unsigned int start, unsigned int end, unsigned int addr)
 {
 	struct adreno_device *adreno_dev = ADRENO_DEVICE(device);
@@ -1077,13 +1077,6 @@ adreno_ringbuffer_issueibcmds(struct kgsl_device_private *dev_priv,
 
 	/* wait for the suspend gate */
 	wait_for_completion(&device->cmdbatch_gate);
-
-	/*
-	 * Clear the wake on touch bit to indicate an IB has been submitted
-	 * since the last time we set it
-	 */
-
-	device->flags &= ~KGSL_FLAG_WAKE_ON_TOUCH;
 
 	/* Queue the command in the ringbuffer */
 	ret = adreno_dispatcher_queue_cmd(adreno_dev, drawctxt, cmdbatch,
