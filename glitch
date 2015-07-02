@@ -3,7 +3,8 @@
 # Glitch kernel build-script (Aroma Edition)	#
 #					  	#
 # Options :				  	#
-#					  	#
+#						#
+# cm : build cm variant			  	#
 # clean : clean the build directory       	#
 # cleank : clean the built kernel packages	#
 # cleanc : clean the compiler cache		#
@@ -13,18 +14,16 @@
 
 # Device options :
 	target_name="N7" #defines the flashable zip device name
-	target_variant="" #defines the flashable zip additional name for variants
 	target_device="N7-2013" #defines the name of device-related folders (can be the same as $target_name)
 	target_defconfig="Glitch_flo_defconfig" #defines the config to use for the build
 
 # Toolchain selection :
 # (default path is "kernel_tree_folder/../toolchains")
 # -------linux-x86
-	#export CROSS_PREFIX="arm-eabi-5.1.sm/bin/arm-eabi-"
+	#export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.03/bin/arm-cortex_a15-linux-gnueabihf-"
 	export CROSS_PREFIX="Linaro-arm-eabi-5.1.0/bin/arm-eabi-"
 	#export CROSS_PREFIX="arm-eabi-5.1.sm/bin/arm-eabi-"
 	#export CROSS_PREFIX="arm-eabi-6.0.sm/bin/arm-eabi-"
-	#export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.03/bin/arm-cortex_a15-linux-gnueabihf-"
 
 # -------darwin-x86
 	#export CROSS_PREFIX=""
@@ -72,10 +71,54 @@ function mka() {
 
 build ()
 {
+
+    if [ "$type" = cm ] ; then
+
+    target_variant="-CM" #defines the flashable zip additional name for variants
+
+    if [ -f drivers/char/msm_rotator_cm.c ] ; then
+    mv drivers/char/msm_rotator.c drivers/char/msm_rotator_aosp.c
+    mv drivers/char/msm_rotator_cm.c drivers/char/msm_rotator.c
+    fi
+
+    if [ -f drivers/video/msm/mdp4_overlay_cm.c ] ; then
+    mv drivers/video/msm/mdp4_overlay.c drivers/video/msm/mdp4_overlay_aosp.c
+    mv drivers/video/msm/mdp4_overlay_cm.c drivers/video/msm/mdp4_overlay.c
+    fi
+
+    if [ -f include/linux/msm_mdp_cm.h ] ; then
+    mv include/linux/msm_mdp.h include/linux/msm_mdp_aosp.h
+    mv include/linux/msm_mdp_cm.h include/linux/msm_mdp.h
+    fi
+
+    else
+
+    target_variant="" #defines the flashable zip additional name for variants
+
+    if [ -f drivers/char/msm_rotator_aosp.c ] ; then
+    mv drivers/char/msm_rotator.c drivers/char/msm_rotator_cm.c
+    mv drivers/char/msm_rotator_aosp.c drivers/char/msm_rotator.c
+    fi
+
+    if [ -f drivers/video/msm/mdp4_overlay_aosp.c ] ; then
+    mv drivers/video/msm/mdp4_overlay.c drivers/video/msm/mdp4_overlay_cm.c
+    mv drivers/video/msm/mdp4_overlay_aosp.c drivers/video/msm/mdp4_overlay.c
+    fi
+
+    if [ -f include/linux/msm_mdp_aosp.h ] ; then
+    mv include/linux/msm_mdp.h include/linux/msm_mdp_cm.h
+    mv include/linux/msm_mdp_aosp.h include/linux/msm_mdp.h
+    fi
+    fi
+
     export ARCH="arm"
     local target=$target_device
     echo "-----------------------------------------"
-    echo "Building for $target_device"
+    if [ "$type" = cm ] ; then
+    echo "Building for $target_device CM"
+    else
+    echo "Building for $target_device AOSP"
+    fi
     local target_dir="$BUILD_DIR/$target_device"
     local module
     rm -fr "$target_dir"
@@ -85,11 +128,21 @@ build ()
 
 . $KERNEL_DIR/../rev
 
+if [ "$type" = cm ] ; then
+echo "Using same version number as base"
+else
 counter=$((counter + 1))
+fi
 
 echo "-----------------------------------------"
 echo "Write release number in config (r"$counter")"
+
+if [ "$type" = cm ] ; then
+releasenumber='CONFIG_LOCALVERSION="-Glitch-N7-CM-r'$counter'"'
+else
 releasenumber='CONFIG_LOCALVERSION="-Glitch-N7-AOSP-r'$counter'"'
+fi
+
 cp arch/arm/configs/$target_defconfig tmp_$target_defconfig;
 sed "43s/.*/$releasenumber/g" tmp_$target_defconfig > release_$target_defconfig;
 mv release_$target_defconfig arch/arm/configs/release_$target_defconfig
@@ -132,8 +185,18 @@ cp $target_dir/arch/arm/boot/zImage $KERNEL_DIR/release/restore/boot/glitch.zIma
 cd $KERNEL_DIR
 rm -f arch/arm/configs/release_$target_defconfig
 echo "-----------------------------------------"
-echo "Setting date in Aroma conf ("$(date +%B)" "$(date +%e)" "$(date +%Y)")"
+echo "Setting date & version in Aroma conf ("$(date +%B)" "$(date +%e)" "$(date +%Y)")"
+
+if [ "$type" = cm ] ; then
+AromaVersionReplace='ini_set("rom_version",          "N7-CM");'
+else
+AromaVersionReplace='ini_set("rom_version",          "N7-AOSP");'
+fi
+
 AromaDateReplace='ini_set("rom_date",             "'$(date +%B)' '$(date +%e)' '$(date +%Y)'");'
+
+sed "34s/.*/$AromaVersionReplace/g" ./release/aroma/META-INF/com/google/android/aroma-config > ./aroma-config.tmp;
+mv ./aroma-config.tmp ./release/aroma/META-INF/com/google/android/aroma-config
 sed "37s/.*/$AromaDateReplace/g" ./release/aroma/META-INF/com/google/android/aroma-config > ./aroma-config.tmp;
 mv ./aroma-config.tmp ./release/aroma/META-INF/com/google/android/aroma-config
 
@@ -164,7 +227,11 @@ REL2=Glitch-$target_name-r$counter$target_variant-restore.zip
 rm boot/glitch.zImage
 rm -fr system/lib/modules/*
 
+if [ "$type" = cm ] ; then
+echo "Using same version number as base"
+else
 echo counter=$counter > $KERNEL_DIR/../rev;
+fi
 
 echo "-----------------------------------------"
 echo ${REL}
@@ -205,6 +272,12 @@ if [ "$1" = cleanc ] ; then
 else
 
 time {
+
+if [ "$1" = cm ] ; then
+export type="cm"
+else
+export type="aosp"
+fi
 
     build $target_device
 
