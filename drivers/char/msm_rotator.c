@@ -615,6 +615,9 @@ static int get_bpp(int format)
 	case MDP_YCRCB_H1V1:
 		return 3;
 
+#ifdef CONFIG_GLITCH_CM
+	case MDP_YCBYCR_H2V1:
+#endif
 	case MDP_YCRYCB_H2V1:
 		return 2;/* YCrYCb interleave */
 
@@ -658,6 +661,9 @@ static int msm_rotator_get_plane_sizes(uint32_t format,	uint32_t w, uint32_t h,
 	case MDP_RGB_888:
 	case MDP_RGB_565:
 	case MDP_BGR_565:
+#ifdef CONFIG_GLITCH_CM
+	case MDP_YCBYCR_H2V1:
+#endif
 	case MDP_YCRYCB_H2V1:
 	case MDP_YCBCR_H1V1:
 	case MDP_YCRCB_H1V1:
@@ -1032,7 +1038,11 @@ static int msm_rotator_ycxcx_h2v2(struct msm_rotator_img_info *info,
 	return 0;
 }
 
+#ifdef CONFIG_GLITCH_CM
+static int msm_rotator_ycxycx(struct msm_rotator_img_info *info,
+#else
 static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
+#endif
 			      unsigned int in_paddr,
 			      unsigned int out_paddr,
 			      unsigned int use_imem,
@@ -1042,13 +1052,32 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 	int bpp;
 	uint32_t dst_format;
 
+#ifdef CONFIG_GLITCH_CM
+	switch (info->src.format) {
+	case MDP_YCBYCR_H2V1:
+		if (info->rotations & MDP_ROT_90)
+			dst_format = MDP_Y_CBCR_H1V2;
+		else
+			dst_format = MDP_Y_CBCR_H2V1;
+		break;
+	case MDP_YCRYCB_H2V1:
+#else
 	if (info->src.format == MDP_YCRYCB_H2V1) {
+#endif
 		if (info->rotations & MDP_ROT_90)
 			dst_format = MDP_Y_CRCB_H1V2;
 		else
 			dst_format = MDP_Y_CRCB_H2V1;
+#ifdef CONFIG_GLITCH_CM
+		break;
+	default:
+#else
 	} else
+#endif
 		return -EINVAL;
+#ifdef CONFIG_GLITCH_CM
+	}
+#endif
 
 	if (info->dst.format != dst_format)
 		return -EINVAL;
@@ -1077,10 +1106,25 @@ static int msm_rotator_ycrycb(struct msm_rotator_img_info *info,
 				  (info->dst.width) << 16,
 				  MSM_ROTATOR_OUT_YSTRIDE1);
 
+#ifdef CONFIG_GLITCH_CM
+		if (dst_format == MDP_Y_CBCR_H1V2 ||
+			dst_format == MDP_Y_CBCR_H2V1) {
+			iowrite32(GET_PACK_PATTERN(0, CLR_CB, 0, CLR_CR, 8),
+					MSM_ROTATOR_SRC_UNPACK_PATTERN1);
+			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CB, CLR_CR, 8),
+					MSM_ROTATOR_OUT_PACK_PATTERN1);
+		} else {
+			iowrite32(GET_PACK_PATTERN(0, CLR_CR, 0, CLR_CB, 8),
+					MSM_ROTATOR_SRC_UNPACK_PATTERN1);
+			iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
+					MSM_ROTATOR_OUT_PACK_PATTERN1);
+		}
+#else
 		iowrite32(GET_PACK_PATTERN(CLR_Y, CLR_CR, CLR_Y, CLR_CB, 8),
 			  MSM_ROTATOR_SRC_UNPACK_PATTERN1);
 		iowrite32(GET_PACK_PATTERN(0, 0, CLR_CR, CLR_CB, 8),
 			  MSM_ROTATOR_OUT_PACK_PATTERN1);
+#endif
 		iowrite32((1  << 18) | 		/* chroma sampling 1=H2V1 */
 			  (ROTATIONS_TO_BITMASK(info->rotations) << 9) |
 			  1 << 8 |			/* ROT_EN */
@@ -1636,8 +1680,15 @@ static int msm_rotator_do_rotate_sub(
 					    in_chroma_paddr,
 					    out_chroma_paddr);
 		break;
+#ifdef CONFIG_GLITCH_CM
+	case MDP_YCBYCR_H2V1:
+#endif
 	case MDP_YCRYCB_H2V1:
+#ifdef CONFIG_GLITCH_CM
+		rc = msm_rotator_ycxycx(img_info,
+#else
 		rc = msm_rotator_ycrycb(img_info,
+#endif
 				in_paddr, out_paddr, use_imem,
 				msm_rotator_dev->last_session_idx != s,
 				out_chroma_paddr);
@@ -1988,6 +2039,14 @@ static int msm_rotator_start(unsigned long arg,
 	case MDP_YCBCR_H1V1:
 	case MDP_YCRCB_H1V1:
 		info.dst.format = info.src.format;
+#ifdef CONFIG_GLITCH_CM
+		break;
+	case MDP_YCBYCR_H2V1:
+		if (info.rotations & MDP_ROT_90)
+			info.dst.format = MDP_Y_CBCR_H1V2;
+		else
+			info.dst.format = MDP_Y_CBCR_H2V1;
+#endif
 		break;
 	case MDP_YCRYCB_H2V1:
 		if (info.rotations & MDP_ROT_90)

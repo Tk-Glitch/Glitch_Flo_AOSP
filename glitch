@@ -10,12 +10,10 @@
 # cleanc : clean the compiler cache		#
 #################################################
 
-############## Basic configuration ##############
-
 # Device options :
-	target_name="N7" #defines the flashable zip device name
+	target_name="flo" #defines the device name/codename for config
+	target_config=$target_name"_defconfig" #defines the device name/codename for config
 	target_device="N7-2013" #defines the name of device-related folders (can be the same as $target_name)
-	target_defconfig="Glitch_flo_defconfig" #defines the config to use for the build
 
 # Toolchain selection :
 # (default path is "kernel_tree_folder/../toolchains")
@@ -28,10 +26,16 @@
 # -------darwin-x86
 	#export CROSS_PREFIX=""
 
-########## End of basic configuration ############
-
 setup ()
 {
+
+if [ ! -f arch/arm/configs/Glitch_$target_name"_defconfig" ] ; then
+echo "Glitch defconfig missing. Creating one for regular build and another for CM......"
+cp arch/arm/configs/$target_name"_defconfig" arch/arm/configs/Glitch_$target_name"_defconfig"
+cp arch/arm/configs/$target_name"_defconfig" arch/arm/configs/Glitch_CM_$target_name"_defconfig"
+echo "done"
+fi
+
 function mka() {
     case `uname -s` in
         Darwin)
@@ -66,58 +70,26 @@ function mka() {
     else
         CCACHE=""
     fi
-
 }
 
 build ()
 {
 
     if [ "$type" = cm ] ; then
-
-    target_variant="-CM" #defines the flashable zip additional name for variants
-
-    if [ -f drivers/char/msm_rotator_cm.c ] ; then
-    mv drivers/char/msm_rotator.c drivers/char/msm_rotator_aosp.c
-    mv drivers/char/msm_rotator_cm.c drivers/char/msm_rotator.c
-    fi
-
-    if [ -f drivers/video/msm/mdp4_overlay_cm.c ] ; then
-    mv drivers/video/msm/mdp4_overlay.c drivers/video/msm/mdp4_overlay_aosp.c
-    mv drivers/video/msm/mdp4_overlay_cm.c drivers/video/msm/mdp4_overlay.c
-    fi
-
-    if [ -f include/linux/msm_mdp_cm.h ] ; then
-    mv include/linux/msm_mdp.h include/linux/msm_mdp_aosp.h
-    mv include/linux/msm_mdp_cm.h include/linux/msm_mdp.h
-    fi
-
+    target_variant="-CM" #defines the flashable zip additional name (CM)
+    target_defconfig="Glitch_CM_$target_config" #defines the config to use for the build (CM)
     else
-
-    target_variant="" #defines the flashable zip additional name for variants
-
-    if [ -f drivers/char/msm_rotator_aosp.c ] ; then
-    mv drivers/char/msm_rotator.c drivers/char/msm_rotator_cm.c
-    mv drivers/char/msm_rotator_aosp.c drivers/char/msm_rotator.c
-    fi
-
-    if [ -f drivers/video/msm/mdp4_overlay_aosp.c ] ; then
-    mv drivers/video/msm/mdp4_overlay.c drivers/video/msm/mdp4_overlay_cm.c
-    mv drivers/video/msm/mdp4_overlay_aosp.c drivers/video/msm/mdp4_overlay.c
-    fi
-
-    if [ -f include/linux/msm_mdp_aosp.h ] ; then
-    mv include/linux/msm_mdp.h include/linux/msm_mdp_cm.h
-    mv include/linux/msm_mdp_aosp.h include/linux/msm_mdp.h
-    fi
+    target_variant="" #defines the flashable zip additional name
+    target_defconfig="Glitch_$target_config" #defines the config to use for the build
     fi
 
     export ARCH="arm"
     local target=$target_device
     echo "-----------------------------------------"
     if [ "$type" = cm ] ; then
-    echo "Building for $target_device CM"
+    echo "Building for $target_device CM using $target_defconfig"
     else
-    echo "Building for $target_device AOSP"
+    echo "Building for $target_device AOSP using $target_defconfig"
     fi
     local target_dir="$BUILD_DIR/$target_device"
     local module
@@ -129,7 +101,7 @@ build ()
 . $KERNEL_DIR/../rev
 
 if [ "$type" = cm ] ; then
-echo "Using same version number as base"
+echo "Using same version number as regular build"
 else
 counter=$((counter + 1))
 fi
@@ -228,7 +200,7 @@ rm boot/glitch.zImage
 rm -fr system/lib/modules/*
 
 if [ "$type" = cm ] ; then
-echo "Using same version number as base"
+echo "Using same version number as regular build"
 else
 echo counter=$counter > $KERNEL_DIR/../rev;
 fi
@@ -276,7 +248,7 @@ time {
 if [ "$1" = cm ] ; then
 export type="cm"
 else
-export type="aosp"
+export type="regular"
 fi
 
     build $target_device

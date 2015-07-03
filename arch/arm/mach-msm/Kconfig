@@ -2670,4 +2670,10 @@ config HAS_MACH_MEMUTILS
 	help
 	  Faster memcpy performance for Krait
 
+config GLITCH_CM
+	default n
+	bool "CyanogenMod compat"
+	help
+	  Enable CM compatibility for AOSP base
+
 endif
