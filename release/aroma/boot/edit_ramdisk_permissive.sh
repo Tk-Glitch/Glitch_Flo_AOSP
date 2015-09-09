@@ -7,14 +7,21 @@ gunzip -c /tmp/ramdisk/initrd.gz | cpio -i
 rm /tmp/ramdisk/initrd.gz
 rm /tmp/initrd.img
 
-if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ]; then
+#disable selinux enforcing
+if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ] && [ $(grep -c "setenforce 1" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/setcon u:r:init:s0/setcon u:r:init:s0\n    setenforce 0/" /tmp/ramdisk/init.rc
+else
+if [ $(grep -c "setenforce 1" /tmp/ramdisk/init.rc) == 1 ]; then
+   sed -i "s/setenforce 1/setenforce 0/" /tmp/ramdisk/init.rc
+fi
 fi
 
+#remove install_recovery
 if [ $(grep -c "#seclabel u:r:install_recovery:s0" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/seclabel u:r:install_recovery:s0/#seclabel u:r:install_recovery:s0/" /tmp/ramdisk/init.rc
 fi
 
+#add init.d support if needed
 if [ $(grep -c "init.d" /tmp/ramdisk/init.rc) == 0 ]; then
    echo "" >> /tmp/ramdisk/init.rc
    echo "service userinit /system/xbin/busybox run-parts /system/etc/init.d" >> /tmp/ramdisk/init.rc

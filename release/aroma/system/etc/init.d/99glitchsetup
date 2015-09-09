@@ -12,6 +12,8 @@ echo $(date) >> $KERNEL_LOGFILE;
 #Permissive mode
 if [ "`grep PERMISSIVE=1 $KERNEL_CONF`" ]; then
   echo 0  > /sys/fs/selinux/enforce;
+else
+  echo 1  > /sys/fs/selinux/enforce;
 fi
 
 #Touch Firmware
