@@ -19,7 +19,8 @@
 # (default path is "kernel_tree_folder/../toolchains")
 # -------linux-x86
 	#export CROSS_PREFIX="arm-cortex_a15-linux-gnueabihf-linaro_4.9.3-2015.03/bin/arm-cortex_a15-linux-gnueabihf-"
-	export CROSS_PREFIX="Linaro-arm-eabi-5.1.0/bin/arm-eabi-"
+	#export CROSS_PREFIX="Linaro-arm-eabi-5.1.0/bin/arm-eabi-"
+	export CROSS_PREFIX="Linaro-arm-eabi-5.2.0/bin/arm-eabi-"
 	#export CROSS_PREFIX="arm-eabi-5.1.sm/bin/arm-eabi-"
 	#export CROSS_PREFIX="arm-eabi-6.0.sm/bin/arm-eabi-"
 

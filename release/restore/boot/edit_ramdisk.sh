@@ -7,6 +7,15 @@ gunzip -c /tmp/ramdisk/initrd.gz | cpio -i
 rm /tmp/ramdisk/initrd.gz
 rm /tmp/initrd.img
 
+#enable selinux enforcing
+if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ] && [ $(grep -c "setenforce 1" /tmp/ramdisk/init.rc) == 0 ]; then
+   sed -i "s/setcon u:r:init:s0/setcon u:r:init:s0\n    setenforce 1/" /tmp/ramdisk/init.rc
+else
+if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 1 ]; then
+   sed -i "s/setenforce 0/setenforce 1/" /tmp/ramdisk/init.rc
+fi
+fi
+
 #remove install_recovery
 if [ $(grep -c "#seclabel u:r:install_recovery:s0" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/seclabel u:r:install_recovery:s0/#seclabel u:r:install_recovery:s0/" /tmp/ramdisk/init.rc

@@ -51,16 +51,6 @@ else
   echo "MC_POWERSAVE=0" >> $CONFIGFILE;
 fi
 
-#Permissive Selinux
-PERMISSIVE=`grep "item.0.7" /tmp/aroma/misc.prop | cut -d '=' -f2`
-echo -e "\n\n##### Enforce Selinux #####\n# 0 for default" >> $CONFIGFILE
-echo -e "# 1 to enable permissive Selinux\n" >> $CONFIGFILE
-if [ "$PERMISSIVE" = 1 ]; then
-  echo "PERMISSIVE=1" >> $CONFIGFILE;
-else
-  echo "PERMISSIVE=0" >> $CONFIGFILE;
-fi
-
 #DT2W
 DT2W=`grep "item.0.8" /tmp/aroma/misc.prop | cut -d '=' -f2`
 echo -e "\n\n##### Enable DT2W #####\n# 0 to disable" >> $CONFIGFILE
@@ -228,6 +218,16 @@ echo -e "# for Aroma Installer to restore them if asked.                    #" >
 echo -e "# Edit these lines only if you're planning to reinstall the kernel #" >> $CONFIGFILE
 echo -e "# and restore settings, as they won't be applied outside of Aroma. #" >> $CONFIGFILE
 echo -e "####################################################################\n\n" >> $CONFIGFILE
+
+#Permissive Selinux
+PERMISSIVE=`grep "item.0.7" /tmp/aroma/misc.prop | cut -d '=' -f2`
+echo -e "\n\n##### Enforce Selinux #####\n# 0 for default" >> $CONFIGFILE
+echo -e "# 1 to enable permissive Selinux\n" >> $CONFIGFILE
+if [ "$PERMISSIVE" = 1 ]; then
+  echo "PERMISSIVE=1" >> $CONFIGFILE;
+else
+  echo "PERMISSIVE=0" >> $CONFIGFILE;
+fi
 
 if [ ! -e /tmp/aroma-data/freq1.prop ]; then
 	cp /tmp/aroma-data/freq0.prop /tmp/aroma-data/freq1.prop;
