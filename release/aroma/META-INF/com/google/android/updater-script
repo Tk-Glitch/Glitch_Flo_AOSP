@@ -83,6 +83,7 @@ ui_print("  /system/bin/thermald -> thermald_bck");
 run_program("/tmp/compatibility2.sh");
 endif;
 endif;
+endif;
 
 package_extract_dir("boot", "/tmp");
 set_perm(0, 0, 0777, "/tmp/max_oc.sh");
