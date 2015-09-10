@@ -94,6 +94,7 @@ selectbox(
   "Qualcomm mpdecision","(stock)",0,
   "Fluxi's MSM Hotplug","",1,
   "Faux123 Intelli-plug","",0,
+  "Arter97's Lazyplug","",0,
 
   "CPU governor","",2,
   "ondemand","(stock)",1,

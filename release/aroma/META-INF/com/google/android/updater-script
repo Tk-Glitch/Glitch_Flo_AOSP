@@ -67,6 +67,15 @@ ui_print("  /system/bin/mpdecision -> mpdecision_bck");
 ui_print("  /system/bin/thermald -> thermald_bck");
 run_program("/tmp/compatibility.sh");
 else
+if
+   file_getprop("/tmp/aroma/cpu.prop","selected.3") == "4"
+     then
+   ui_print("Arter97's Lazyplug enabled");
+ui_print("Renaming binaries...");
+ui_print("  /system/bin/mpdecision -> mpdecision_bck");
+ui_print("  /system/bin/thermald -> thermald_bck");
+run_program("/tmp/compatibility.sh");
+else
    ui_print("Qualcomm mpdecision enabled");
 ui_print("Renaming binaries...");
 ui_print("  /system/bin/mpdecision_bck -> mpdecision");

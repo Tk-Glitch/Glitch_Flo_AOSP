@@ -443,11 +443,13 @@ fi
 #HOTPLUGDRV
 HOTPLUGDRV=`grep selected.3 /tmp/aroma/cpu.prop | cut -d '=' -f2`
 echo -e "\n\n##### Hotplug driver Settings #####\n# 0 to enable qualcomm mpdecision (stock)" >> $CONFIGFILE
-echo -e "# 1 to enable MSM Hotplug (recommended)\n# 2 to enable intelli-plug\n" >> $CONFIGFILE
+echo -e "# 1 to enable MSM Hotplug (recommended)\n# 2 to enable intelli-plug\n# 3 to enable Lazyplug\n" >> $CONFIGFILE
 if [ "$HOTPLUGDRV" = 1 ]; then
   echo "HOTPLUGDRV=0" >> $CONFIGFILE;
 elif [ "$HOTPLUGDRV" = 3 ]; then
   echo "HOTPLUGDRV=2" >> $CONFIGFILE;
+elif [ "$HOTPLUGDRV" = 4 ]; then
+  echo "HOTPLUGDRV=3" >> $CONFIGFILE;
 else
   echo "HOTPLUGDRV=1" >> $CONFIGFILE;
 fi

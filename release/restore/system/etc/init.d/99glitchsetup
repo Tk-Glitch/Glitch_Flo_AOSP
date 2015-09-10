@@ -98,18 +98,28 @@ if [ "`grep HOTPLUGDRV=1 $KERNEL_CONF`" ]; then
   echo 1 > /sys/module/msm_hotplug/msm_enabled;
   echo 0 > /sys/module/intelli_plug/parameters/intelli_plug_active;
   echo 0 > /sys/module/intelli_plug/parameters/touch_boost_active;
+  echo 0 > /sys/module/lazyplug/parameters/lazyplug_active;
   echo MSM-hotplug enabled >> $KERNEL_LOGFILE;
 elif [ "`grep HOTPLUGDRV=2 $KERNEL_CONF`" ]; then
   echo 0 > /sys/module/msm_mpdecision/parameters/enabled;
   echo 0 > /sys/module/msm_hotplug/msm_enabled;
   echo 1 > /sys/module/intelli_plug/parameters/intelli_plug_active;
   echo 1 > /sys/module/intelli_plug/parameters/touch_boost_active;
+  echo 0 > /sys/module/lazyplug/parameters/lazyplug_active;
   echo Intelli-Plug enabled >> $KERNEL_LOGFILE;
+elif [ "`grep HOTPLUGDRV=3 $KERNEL_CONF`" ]; then
+  echo 0 > /sys/module/msm_mpdecision/parameters/enabled;
+  echo 0 > /sys/module/msm_hotplug/msm_enabled;
+  echo 0 > /sys/module/intelli_plug/parameters/intelli_plug_active;
+  echo 0 > /sys/module/intelli_plug/parameters/touch_boost_active;
+  echo 1 > /sys/module/lazyplug/parameters/lazyplug_active;
+  echo LazyPlug enabled >> $KERNEL_LOGFILE;
 else
   echo 1 > /sys/module/msm_mpdecision/parameters/enabled;
   echo 0 > /sys/module/msm_hotplug/msm_enabled;
   echo 0 > /sys/module/intelli_plug/parameters/intelli_plug_active;
   echo 0 > /sys/module/intelli_plug/parameters/touch_boost_active;
+  echo 0 > /sys/module/lazyplug/parameters/lazyplug_active;
   echo Qualcomm MPdecision enabled >> $KERNEL_LOGFILE;
 fi
 
