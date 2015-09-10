@@ -19,7 +19,6 @@
 #include <linux/mutex.h>
 #include <linux/module.h>
 #include <linux/slab.h>
-#include <linux/input.h>
 #include <linux/cpufreq.h>
 
 #ifdef CONFIG_POWERSUSPEND
@@ -47,26 +46,22 @@
 static DEFINE_MUTEX(intelli_plug_mutex);
 
 static struct delayed_work intelli_plug_work;
-static struct delayed_work intelli_plug_boost;
 
 static struct workqueue_struct *intelliplug_wq;
 static struct workqueue_struct *intelliplug_boost_wq;
 
-static unsigned int intelli_plug_active = 0;
+static unsigned int __read_mostly intelli_plug_active = 0;
 module_param(intelli_plug_active, uint, 0664);
 
-static unsigned int touch_boost_active = 0;
-module_param(touch_boost_active, uint, 0664);
-
-static unsigned int nr_run_profile_sel = 0;
+static unsigned int __read_mostly nr_run_profile_sel = 0;
 module_param(nr_run_profile_sel, uint, 0664);
 
 //default to something sane rather than zero
-static unsigned int sampling_time = DEF_SAMPLING_MS;
+static unsigned int __read_mostly sampling_time = DEF_SAMPLING_MS;
 
 static int persist_count = 0;
 
-static bool suspended = false;
+static bool __read_mostly suspended = false;
 
 struct ip_cpu_info {
 	unsigned int sys_max;
@@ -99,42 +94,42 @@ defined (CONFIG_ARCH_MSM8610) || defined (CONFIG_ARCH_MSM8228)
 
 static unsigned int nr_fshift = NR_FSHIFT;
 
-static unsigned int nr_run_thresholds_balance[] = {
+static unsigned int __read_mostly nr_run_thresholds_balance[] = {
 	(THREAD_CAPACITY * 625 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 875 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 1125 * MULT_FACTOR) / DIV_FACTOR,
 	UINT_MAX
 };
 
-static unsigned int nr_run_thresholds_performance[] = {
+static unsigned int __read_mostly nr_run_thresholds_performance[] = {
 	(THREAD_CAPACITY * 380 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 625 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 875 * MULT_FACTOR) / DIV_FACTOR,
 	UINT_MAX
 };
 
-static unsigned int nr_run_thresholds_conservative[] = {
+static unsigned int __read_mostly nr_run_thresholds_conservative[] = {
 	(THREAD_CAPACITY * 875 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 1625 * MULT_FACTOR) / DIV_FACTOR,
 	(THREAD_CAPACITY * 2125 * MULT_FACTOR) / DIV_FACTOR,
 	UINT_MAX
 };
 
-static unsigned int nr_run_thresholds_eco[] = {
+static unsigned int __read_mostly nr_run_thresholds_eco[] = {
         (THREAD_CAPACITY * 380 * MULT_FACTOR) / DIV_FACTOR,
 	UINT_MAX
 };
 
-static unsigned int nr_run_thresholds_eco_extreme[] = {
+static unsigned int __read_mostly nr_run_thresholds_eco_extreme[] = {
         (THREAD_CAPACITY * 750 * MULT_FACTOR) / DIV_FACTOR,
 	UINT_MAX
 };
 
-static unsigned int nr_run_thresholds_disable[] = {
+static unsigned int __read_mostly nr_run_thresholds_disable[] = {
 	0,  0,  0,  UINT_MAX
 };
 
-static unsigned int *nr_run_profiles[] = {
+static unsigned int __read_mostly *nr_run_profiles[] = {
 	nr_run_thresholds_balance,
 	nr_run_thresholds_performance,
 	nr_run_thresholds_conservative,
@@ -149,13 +144,13 @@ static unsigned int *nr_run_profiles[] = {
 
 #define CPU_NR_THRESHOLD	((THREAD_CAPACITY << 1) + (THREAD_CAPACITY / 2))
 
-static unsigned int nr_possible_cores;
+static unsigned int __read_mostly nr_possible_cores;
 module_param(nr_possible_cores, uint, 0444);
 
-static unsigned int cpu_nr_run_threshold = CPU_NR_THRESHOLD;
+static unsigned int __read_mostly cpu_nr_run_threshold = CPU_NR_THRESHOLD;
 module_param(cpu_nr_run_threshold, uint, 0664);
 
-static unsigned int nr_run_hysteresis = NR_RUN_HYSTERESIS_QUAD;
+static unsigned int __read_mostly nr_run_hysteresis = NR_RUN_HYSTERESIS_QUAD;
 module_param(nr_run_hysteresis, uint, 0664);
 
 static unsigned int nr_run_last;
@@ -199,17 +194,6 @@ static unsigned int calculate_thread_stats(void)
 	nr_run_last = nr_run;
 
 	return nr_run;
-}
-
-static void __ref intelli_plug_boost_fn(struct work_struct *work)
-{
-
-	int nr_cpus = num_online_cpus();
-
-	if (intelli_plug_active)
-		if (touch_boost_active)
-			if (nr_cpus < 2)
-				cpu_up(1);
 }
 
 /*
@@ -515,80 +499,6 @@ static struct early_suspend intelli_plug_early_suspend_driver = {
 };
 #endif	/* CONFIG_HAS_EARLYSUSPEND */
 
-static void intelli_plug_input_event(struct input_handle *handle,
-		unsigned int type, unsigned int code, int value)
-{
-#ifdef DEBUG_INTELLI_PLUG
-	pr_info("intelli_plug touched!\n");
-#endif
-	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_boost,
-		msecs_to_jiffies(10));
-}
-
-static int intelli_plug_input_connect(struct input_handler *handler,
-		struct input_dev *dev, const struct input_device_id *id)
-{
-	struct input_handle *handle;
-	int error;
-
-	handle = kzalloc(sizeof(struct input_handle), GFP_KERNEL);
-	if (!handle)
-		return -ENOMEM;
-
-	handle->dev = dev;
-	handle->handler = handler;
-	handle->name = "intelliplug";
-
-	error = input_register_handle(handle);
-	if (error)
-		goto err2;
-
-	error = input_open_device(handle);
-	if (error)
-		goto err1;
-	pr_info("%s found and connected!\n", dev->name);
-	return 0;
-err1:
-	input_unregister_handle(handle);
-err2:
-	kfree(handle);
-	return error;
-}
-
-static void intelli_plug_input_disconnect(struct input_handle *handle)
-{
-	input_close_device(handle);
-	input_unregister_handle(handle);
-	kfree(handle);
-}
-
-static const struct input_device_id intelli_plug_ids[] = {
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_EVBIT |
-			 INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.evbit = { BIT_MASK(EV_ABS) },
-		.absbit = { [BIT_WORD(ABS_MT_POSITION_X)] =
-			    BIT_MASK(ABS_MT_POSITION_X) |
-			    BIT_MASK(ABS_MT_POSITION_Y) },
-	}, /* multi-touch touchscreen */
-	{
-		.flags = INPUT_DEVICE_ID_MATCH_KEYBIT |
-			 INPUT_DEVICE_ID_MATCH_ABSBIT,
-		.keybit = { [BIT_WORD(BTN_TOUCH)] = BIT_MASK(BTN_TOUCH) },
-		.absbit = { [BIT_WORD(ABS_X)] =
-			    BIT_MASK(ABS_X) | BIT_MASK(ABS_Y) },
-	}, /* touchpad */
-	{ },
-};
-
-static struct input_handler intelli_plug_input_handler = {
-	.event          = intelli_plug_input_event,
-	.connect        = intelli_plug_input_connect,
-	.disconnect     = intelli_plug_input_disconnect,
-	.name           = "intelliplug_handler",
-	.id_table       = intelli_plug_ids,
-};
-
 int __init intelli_plug_init(void)
 {
 	int rc;
@@ -618,7 +528,6 @@ int __init intelli_plug_init(void)
 	l_ip_info->cur_max = policy->max;
 #endif
 
-	rc = input_register_handler(&intelli_plug_input_handler);
 #ifdef CONFIG_POWERSUSPEND
 	register_power_suspend(&intelli_plug_power_suspend_driver);
 #endif
@@ -630,7 +539,6 @@ int __init intelli_plug_init(void)
 	intelliplug_boost_wq = alloc_workqueue("iplug_boost",
 				WQ_HIGHPRI | WQ_UNBOUND, 1);
 	INIT_DELAYED_WORK(&intelli_plug_work, intelli_plug_work_fn);
-	INIT_DELAYED_WORK(&intelli_plug_boost, intelli_plug_boost_fn);
 	queue_delayed_work_on(0, intelliplug_wq, &intelli_plug_work,
 		msecs_to_jiffies(10));
 
