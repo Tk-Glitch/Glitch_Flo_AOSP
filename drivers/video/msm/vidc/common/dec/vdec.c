@@ -35,7 +35,7 @@
 #include "vcd_res_tracker_api.h"
 #include "vdec_internal.h"
 
-
+extern void lazyplug_enter_lazy(bool enter);
 
 #define DBG(x...) pr_debug(x)
 #define INFO(x...) pr_info(x)
@@ -2620,6 +2620,7 @@ static int vid_dec_open(struct inode *inode, struct file *file)
 	}
 
 	file->private_data = client_ctx;
+	lazyplug_enter_lazy(true);
 	mutex_unlock(&vid_dec_device_p->lock);
 	return rc;
 }
@@ -2652,6 +2653,7 @@ static int vid_dec_release(struct inode *inode, struct file *file)
 #ifndef USE_RES_TRACKER
 	vidc_disable_clk();
 #endif
+	lazyplug_enter_lazy(false);
 	INFO("msm_vidc_dec: Return from %s()", __func__);
 	return 0;
 }
