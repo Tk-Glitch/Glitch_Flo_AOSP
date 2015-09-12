@@ -30,6 +30,7 @@
 #include <linux/kthread.h>
 #include <linux/slab.h>
 #include <linux/kernel_stat.h>
+#include <linux/earlysuspend.h>
 #include <asm/cputime.h>
 
 #define CREATE_TRACE_POINTS
@@ -59,6 +60,9 @@ struct cpufreq_interactive_cpuinfo {
 
 static DEFINE_PER_CPU(struct cpufreq_interactive_cpuinfo, cpuinfo);
 
+/* boolean for determining screen on/off state */
+static bool suspended = false;
+
 /* realtime thread handles frequency scaling */
 static struct task_struct *speedchange_task;
 static cpumask_t speedchange_cpumask;
@@ -71,6 +75,9 @@ static unsigned int hispeed_freq;
 /* Go to hi speed when CPU load at or above this value. */
 #define DEFAULT_GO_HISPEED_LOAD 99
 static unsigned long go_hispeed_load = DEFAULT_GO_HISPEED_LOAD;
+
+/* Go to hi speed when CPU load at or above this value on screen-off state */
+#define DEFAULT_GO_HISPEED_LOAD_SCREEN_OFF 110
 
 /* Target load.  Lower values result in higher CPU speeds. */
 #define DEFAULT_TARGET_LOAD 90
@@ -365,7 +372,7 @@ static u64 update_load(int cpu)
 	return now;
 }
 
-static void cpufreq_interactive_timer(unsigned long data)
+static void __cpufreq_interactive_timer(unsigned long data, bool is_notif)
 {
 	u64 now;
 	unsigned int delta_time;
@@ -399,7 +406,9 @@ static void cpufreq_interactive_timer(unsigned long data)
 	cpu_load = loadadjfreq / pcpu->policy->cur;
 	boosted = boost_val || now < boostpulse_endtime;
 
-	if (cpu_load >= go_hispeed_load || boosted) {
+	if ( (suspended && (cpu_load >= DEFAULT_GO_HISPEED_LOAD_SCREEN_OFF)) ||
+	    (!suspended && (cpu_load >= go_hispeed_load)) ||
+	     (boosted)) {
 		if (pcpu->target_freq < hispeed_freq) {
 			new_freq = hispeed_freq;
 		} else {
@@ -438,7 +447,7 @@ static void cpufreq_interactive_timer(unsigned long data)
 	 * Do not scale below floor_freq unless we have been at or above the
 	 * floor frequency for the minimum sample time since last validated.
 	 */
-	if (new_freq < pcpu->floor_freq) {
+	if (!is_notif && new_freq < pcpu->floor_freq) {
 		if (now - pcpu->floor_validate_time < min_sample_time) {
 			trace_cpufreq_interactive_notyet(
 				data, cpu_load, pcpu->target_freq,
@@ -545,7 +554,7 @@ static void cpufreq_interactive_idle_end(void)
 	} else if (time_after_eq(jiffies, pcpu->cpu_timer.expires)) {
 		del_timer(&pcpu->cpu_timer);
 		del_timer(&pcpu->cpu_slack_timer);
-		cpufreq_interactive_timer(smp_processor_id());
+		__cpufreq_interactive_timer(smp_processor_id(), true);
 	}
 
 	up_read(&pcpu->enable_sem);
@@ -657,7 +666,7 @@ static int cpufreq_interactive_notifier(
 	int cpu;
 	unsigned long flags;
 
-	if (val == CPUFREQ_POSTCHANGE) {
+	if (val == CPUFREQ_PRECHANGE) {
 		pcpu = &per_cpu(cpuinfo, freq->cpu);
 		if (!down_read_trylock(&pcpu->enable_sem))
 			return 0;
@@ -848,6 +857,10 @@ static ssize_t store_hispeed_freq(struct kobject *kobj,
 static struct global_attr hispeed_freq_attr = __ATTR(hispeed_freq, 0644,
 		show_hispeed_freq, store_hispeed_freq);
 
+static void cpufreq_interactive_timer(unsigned long data)
+{
+	__cpufreq_interactive_timer(data, false);
+}
 
 static ssize_t show_go_hispeed_load(struct kobject *kobj,
 				     struct attribute *attr, char *buf)
@@ -903,12 +916,28 @@ static ssize_t store_timer_rate(struct kobject *kobj,
 			struct attribute *attr, const char *buf, size_t count)
 {
 	int ret;
-	unsigned long val;
-
+	unsigned long val, val_round;
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	unsigned long flags2;
+#endif
 	ret = strict_strtoul(buf, 0, &val);
 	if (ret < 0)
 		return ret;
-	timer_rate = val;
+
+	val_round = jiffies_to_usecs(usecs_to_jiffies(val));
+	if (val != val_round)
+		pr_warn("timer_rate not aligned to jiffy. Rounded up to %lu\n",
+			val_round);
+
+#ifdef CONFIG_MODE_AUTO_CHANGE
+	spin_lock_irqsave(&mode_lock, flags2);
+	timer_rate_set[param_index] = val_round;
+	if (cur_param_index == param_index)
+		timer_rate = val_round;
+	spin_unlock_irqrestore(&mode_lock, flags2);
+#else
+	timer_rate = val_round;
+#endif
 	return count;
 }
 
@@ -1209,6 +1238,23 @@ static void cpufreq_interactive_nop_timer(unsigned long data)
 {
 }
 
+static void arteractive_early_suspend(struct early_suspend *handler)
+{
+	suspended = true;
+	return;
+}
+
+static void arteractive_late_resume(struct early_suspend *handler)
+{
+	suspended = false;
+	return;
+}
+
+static struct early_suspend arteractive_suspend = {
+	.suspend = arteractive_early_suspend,
+	.resume = arteractive_late_resume,
+};
+
 static int __init cpufreq_interactive_init(void)
 {
 	unsigned int i;
@@ -1227,6 +1273,8 @@ static int __init cpufreq_interactive_init(void)
 		spin_lock_init(&pcpu->target_freq_lock);
 		init_rwsem(&pcpu->enable_sem);
 	}
+
+	register_early_suspend(&arteractive_suspend);
 
 	spin_lock_init(&target_loads_lock);
 	spin_lock_init(&speedchange_cpumask_lock);
