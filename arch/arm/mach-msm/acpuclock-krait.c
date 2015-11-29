@@ -52,6 +52,8 @@
 /** elementalx defs  **/
 
 int uv_bin = 0;
+
+#ifdef ELEX_SAVE
 uint32_t arg_max_oc0 = 1512000;
 uint32_t arg_max_oc1 = 1512000;
 uint32_t arg_max_oc2 = 1512000;
@@ -144,6 +146,7 @@ static int __init cpufreq_read_arg_min_clock(char *min_clock)
 	return 0;
 }
 __setup("min_clock=", cpufreq_read_arg_min_clock);
+#endif
 
 static int __init get_uv_level(char *vdd_uv)
 {
@@ -1093,7 +1096,7 @@ void acpuclk_set_vdd(unsigned int khz, int vdd_uv) {
 }
 #endif	/* CONFIG_CPU_VOTALGE_TABLE */
 
-#ifdef CONFIG_CPU_FREQ_MSM
+#ifdef CONFIG_CPU_FREQ_MSM_ELEX
 static struct cpufreq_frequency_table freq_table[NR_CPUS][FREQ_TABLE_SIZE];
 
 static void __init cpufreq_table_init(void)
@@ -1110,6 +1113,39 @@ static void __init cpufreq_table_init(void)
 				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
 			if (drv.acpu_freq_tbl[i].speed.khz <= limit_max_oc[cpu]
 				&& drv.acpu_freq_tbl[i].speed.khz >= limit_min_clock) {
+				freq_table[cpu][freq_cnt].index = freq_cnt;
+				freq_table[cpu][freq_cnt].frequency
+					= drv.acpu_freq_tbl[i].speed.khz;
+				freq_cnt++;
+			}
+		}
+		/* freq_table not big enough to store all usable freqs. */
+		BUG_ON(drv.acpu_freq_tbl[i].speed.khz != 0);
+
+		freq_table[cpu][freq_cnt].index = freq_cnt;
+		freq_table[cpu][freq_cnt].frequency = CPUFREQ_TABLE_END;
+
+		dev_info(drv.dev, "CPU%d: %d frequencies supported\n",
+			cpu, freq_cnt);
+
+		/* Register table with CPUFreq. */
+		cpufreq_frequency_table_get_attr(freq_table[cpu], cpu);
+	}
+}
+#endif
+#ifdef CONFIG_CPU_FREQ_MSM
+static struct cpufreq_frequency_table freq_table[NR_CPUS][35];
+
+static void __init cpufreq_table_init(void)
+{
+	int cpu;
+
+	for_each_possible_cpu(cpu) {
+		int i, freq_cnt = 0;
+		/* Construct the freq_table tables from acpu_freq_tbl. */
+		for (i = 0; drv.acpu_freq_tbl[i].speed.khz != 0
+				&& freq_cnt < ARRAY_SIZE(*freq_table); i++) {
+			if (drv.acpu_freq_tbl[i].use_for_scaling) {
 				freq_table[cpu][freq_cnt].index = freq_cnt;
 				freq_table[cpu][freq_cnt].frequency
 					= drv.acpu_freq_tbl[i].speed.khz;
@@ -1207,6 +1243,7 @@ static void krait_apply_vmin(struct acpu_level *tbl)
 	}
 }
 
+#ifdef GLITCH_UV
 static void apply_undervolting(void)
 {
 	int i;
@@ -1242,6 +1279,40 @@ static void apply_undervolting(void)
 		drv.acpu_freq_tbl[i].vdd_core = (drv.acpu_freq_tbl[i].vdd_core - 50000);
 		printk(KERN_INFO "[glitch]: min_voltage='%i'\n", drv.acpu_freq_tbl[i].vdd_core);
 	}
+	}
+}
+#endif
+
+static void apply_undervolting(void)
+{
+	if (uv_bin == 6) {
+		drv.acpu_freq_tbl[0].vdd_core = 725000;
+	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	}
+
+	if (uv_bin == 5) {
+		drv.acpu_freq_tbl[0].vdd_core = 750000;
+	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	}
+
+	if (uv_bin == 4) {
+		drv.acpu_freq_tbl[0].vdd_core = 775000;
+	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	}
+
+	if (uv_bin == 3) {
+		drv.acpu_freq_tbl[0].vdd_core = 800000;
+	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	}
+
+	if (uv_bin == 2) {
+		drv.acpu_freq_tbl[0].vdd_core = 825000;
+	        printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
+	}
+
+	if (uv_bin == 1) {
+		drv.acpu_freq_tbl[0].vdd_core = 850000;
+		printk(KERN_INFO "[elementalx]: min_voltage='%i'\n", drv.acpu_freq_tbl[0].vdd_core );
 	}
 }
 

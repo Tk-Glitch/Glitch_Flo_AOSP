@@ -21,20 +21,20 @@ TFW="`cat /sys/devices/i2c-3/3-0010/vendor`"
 echo TouchFW: $TFW >> $KERNEL_LOGFILE;
 
 #Max CPU_FREQ
-MAXF="`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq`"
-echo $MAXF > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq;
-echo $MAXF > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq;
-echo $MAXF > /sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq;
-echo $MAXF > /sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq;
-echo Max CPU Frequency: $MAXF >> $KERNEL_LOGFILE;
+#MAXF="`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_max_freq`"
+#echo $MAXF > /sys/devices/system/cpu/cpu0/cpufreq/scaling_max_freq;
+#echo $MAXF > /sys/devices/system/cpu/cpu1/cpufreq/scaling_max_freq;
+#echo $MAXF > /sys/devices/system/cpu/cpu2/cpufreq/scaling_max_freq;
+#echo $MAXF > /sys/devices/system/cpu/cpu3/cpufreq/scaling_max_freq;
+#echo Max CPU Frequency: $MAXF >> $KERNEL_LOGFILE;
 
 #Min CPU_FREQ
-MINF="`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq`"
-echo $MINF > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq; 
-echo $MINF > /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq;
-echo $MINF > /sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq;
-echo $MINF > /sys/devices/system/cpu/cpu3/cpufreq/scaling_min_freq;
-echo Min CPU Frequency: $MINF >> $KERNEL_LOGFILE;
+#MINF="`cat /sys/devices/system/cpu/cpu0/cpufreq/cpuinfo_min_freq`"
+#echo $MINF > /sys/devices/system/cpu/cpu0/cpufreq/scaling_min_freq; 
+#echo $MINF > /sys/devices/system/cpu/cpu1/cpufreq/scaling_min_freq;
+#echo $MINF > /sys/devices/system/cpu/cpu2/cpufreq/scaling_min_freq;
+#echo $MINF > /sys/devices/system/cpu/cpu3/cpufreq/scaling_min_freq;
+#echo Min CPU Frequency: $MINF >> $KERNEL_LOGFILE;
 
 #I/O scheduler
 if [ "`grep IOSCHED=1 $KERNEL_CONF`" ]; then

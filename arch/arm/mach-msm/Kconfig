@@ -2668,6 +2668,14 @@ config HAS_MACH_MEMUTILS
 	help
 	  Faster memcpy performance for Krait
 
+config MSM_LIMITER
+	bool "MSM Frequency Limiter Driver"
+	depends on (LCD_NOTIFY || POWERSUSPEND || HAS_EARLYSUSPEND)
+	default y
+	help
+	  The MSM Frequency Limiter Driver controls max frequency limit for each CPU
+	  to desired value on suspend/resume
+
 config GLITCH_CM
 	default n
 	bool "CyanogenMod compat"
