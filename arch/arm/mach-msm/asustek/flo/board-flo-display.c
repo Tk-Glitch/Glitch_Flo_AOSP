@@ -28,9 +28,6 @@
 #include "devices.h"
 #include "board-flo.h"
 #include <mach/board_asustek.h>
-#ifdef CONFIG_LCD_NOTIFY
-#include <linux/lcd_notify.h>
-#endif
 
 #ifdef CONFIG_FB_MSM_TRIPLE_BUFFER
 /* prim = 1366 x 768 x 3(bpp) x 3(pages) */
@@ -516,9 +513,6 @@ static int mipi_dsi_panel_power(int on)
 	}
 
 	if (on) {
-#ifdef CONFIG_LCD_NOTIFY
-		lcd_notifier_call_chain(LCD_EVENT_ON_START, NULL);
-#endif
 		rc = regulator_enable(reg_lvs7);
 		if (rc) {
 			pr_err("enable lvs7 failed, rc=%d\n", rc);
@@ -570,13 +564,7 @@ static int mipi_dsi_panel_power(int on)
 			gpio_set_value_cansleep(gpio_LCD_BL_EN, 1);
 			msleep(20);
 		}
-#ifdef CONFIG_LCD_NOTIFY
-		lcd_notifier_call_chain(LCD_EVENT_ON_END, NULL);
-#endif
 	} else {
-#ifdef CONFIG_LCD_NOTIFY
-		lcd_notifier_call_chain(LCD_EVENT_OFF_START, NULL);
-#endif
 		if (type == 0) {
 			msleep(20);
 			gpio_set_value_cansleep(gpio_EN_VDD_BL, 0);
@@ -619,9 +607,7 @@ static int mipi_dsi_panel_power(int on)
 			return -ENODEV;
 		}
 	}
-#ifdef CONFIG_LCD_NOTIFY
-		lcd_notifier_call_chain(LCD_EVENT_OFF_END, NULL);
-#endif
+
 	printk("%s-\n", __func__);
 	return 0;
 }

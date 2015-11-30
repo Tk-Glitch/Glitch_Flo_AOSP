@@ -28,6 +28,13 @@
 #include <linux/miscdevice.h>
 #include <linux/debugfs.h>
 
+#ifdef CONFIG_STATE_NOTIFIER
+#include <linux/state_notifier.h>
+#endif
+#ifdef CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE
+bool scr_suspended;
+#endif
+
 // for linux 2.6.36.3
 #include <linux/cdev.h>
 #include <linux/slab.h>
@@ -1728,7 +1735,11 @@ static int elan_ktf3k_ts_suspend(struct i2c_client *client, pm_message_t mesg)
 #if defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
 	bool prevent_sleep = false;
 	prevent_sleep = prevent_sleep || (dt2w_switch > 0);
+	scr_suspended = true;
 #endif
+#endif
+#ifdef CONFIG_STATE_NOTIFIER
+			state_suspend();
 #endif
 	touch_debug(DEBUG_INFO, "[elan] %s: enter\n", __func__);
 #ifdef CONFIG_TOUCHSCREEN_PREVENT_SLEEP
@@ -1786,9 +1797,13 @@ static int elan_ktf3k_ts_resume(struct i2c_client *client)
 #if defined(CONFIG_TOUCHSCREEN_DOUBLETAP2WAKE)
 	bool prevent_sleep = false;
 	prevent_sleep = prevent_sleep || (dt2w_switch > 0);
+	scr_suspended = false;
 #endif
 #endif
 
+#ifdef CONFIG_STATE_NOTIFIER
+			state_resume();
+#endif
 	//gpio_direction_output(31, 0);
 	  
 	touch_debug(DEBUG_INFO, "[elan] %s: enter\n", __func__);
