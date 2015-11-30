@@ -34,7 +34,6 @@
 #include "mipi_dsi.h"
 #include "mdp.h"
 #include "mdp4.h"
-#include <linux/lcd_notify.h>
 
 u32 dsi_irq;
 u32 esc_byte_ratio;
@@ -121,8 +120,6 @@ static int mipi_dsi_off(struct platform_device *pdev)
 
 	mipi_dsi_clk_disable();
 
-	lcd_notifier_call_chain(LCD_EVENT_ON_END, NULL);
-
 	/* disbale dsi engine */
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
 
@@ -169,8 +166,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
-
-	lcd_notifier_call_chain(LCD_EVENT_ON_START, NULL);
 
 	cont_splash_clk_ctrl(0);
 	mipi_dsi_prepare_clocks();

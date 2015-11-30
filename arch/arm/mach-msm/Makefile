@@ -400,4 +400,5 @@ obj-$(CONFIG_DEBUG_FS) += msm_cpr-debug.o
 endif
 obj-$(CONFIG_MSM_CPU_PWRCTL) +=  msm_cpu_pwrctl.o
 obj-$(CONFIG_HAS_MACH_MEMUTILS) += memutils/
+obj-$(CONFIG_LCD_NOTIFY) += lcd_notify.o
 obj-$(CONFIG_MSM_LIMITER) += msm_limiter.o
