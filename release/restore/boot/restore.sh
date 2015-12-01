@@ -36,11 +36,6 @@ fi
 
 l2_opt="l2_opt="$L2_OC;
 vdd_uv="vdd_uv="$UV_LEVEL;
-min_clock="min_clock="$MINF"000";
-max_oc0="max_oc0="$MAXF_CPU0"000";
-max_oc1="max_oc1="$MAXF_CPU1"000";
-max_oc2="max_oc2="$MAXF_CPU2"000";
-max_oc3="max_oc3="$MAXF_CPU3"000";
 
 null="abc"
 
