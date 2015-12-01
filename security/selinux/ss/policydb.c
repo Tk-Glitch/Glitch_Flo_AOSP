@@ -153,6 +153,26 @@ static struct policydb_compat_info policydb_compat[] = {
 		.sym_num	= SYM_NUM,
 		.ocon_num	= OCON_NUM,
 	},
+	{
+		.version	= POLICYDB_VERSION_NEW_OBJECT_DEFAULTS,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= OCON_NUM,
+	},
+	{
+		.version	= POLICYDB_VERSION_DEFAULT_TYPE,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= OCON_NUM,
+	},
+	{
+		.version	= POLICYDB_VERSION_CONSTRAINT_NAMES,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= OCON_NUM,
+	},
+	{
+		.version	= POLICYDB_VERSION_IOCTL_OPERATIONS,
+		.sym_num	= SYM_NUM,
+		.ocon_num	= OCON_NUM,
+	},
 };
 
 static struct policydb_compat_info *policydb_lookup_compat(int version)
@@ -2817,6 +2837,41 @@ static int common_write(void *vkey, void *datum, void *ptr)
 	rc = hashtab_map(comdatum->permissions.table, perm_write, fp);
 	if (rc)
 		return rc;
+
+	if (p->policyvers >= POLICYDB_VERSION_NEW_OBJECT_DEFAULTS) {
+		buf[0] = cpu_to_le32(cladatum->default_user);
+		buf[1] = cpu_to_le32(cladatum->default_role);
+		buf[2] = cpu_to_le32(cladatum->default_range);
+
+		rc = put_entry(buf, sizeof(uint32_t), 3, fp);
+		if (rc)
+			return rc;
+	}
+
+	if (p->policyvers >= POLICYDB_VERSION_DEFAULT_TYPE) {
+		buf[0] = cpu_to_le32(cladatum->default_type);
+		rc = put_entry(buf, sizeof(uint32_t), 1, fp);
+		if (rc)
+			return rc;
+	}
+
+	return 0;
+}
+
+static int type_set_write(struct type_set *t, void *fp)
+{
+	int rc;
+	__le32 buf[1];
+
+	if (ebitmap_write(&t->types, fp))
+		return -EINVAL;
+	if (ebitmap_write(&t->negset, fp))
+		return -EINVAL;
+
+	buf[0] = cpu_to_le32(t->flags);
+	rc = put_entry(buf, sizeof(u32), 1, fp);
+	if (rc)
+		return -EINVAL;
 
 	return 0;
 }
