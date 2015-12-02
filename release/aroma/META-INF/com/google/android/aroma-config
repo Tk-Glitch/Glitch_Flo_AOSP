@@ -219,7 +219,7 @@ selectbox(
   "4.1V","(83% - conservative)",0,
   "4.0V","(73% - very conservative)",0,
 
-  "CPU minfreq undervolting","",2,
+  "CPU lowfreqs undervolting (384MHz & lower)","",2,
   "No undervolting","(Stock)",0,
   "Undervolt -50 mV","",1,
   "Undervolt -75 mV","",0,
@@ -277,7 +277,7 @@ checkbox(
   "Disable magnetic cover on/off","",0,
   "Enable USB OTG+Charge mode","Allows charging in USB host mode (disables self-powered OTG)",0,
   "Enable Backlight dimmer","Lower screen brightness",0,
-  "Enable max screen off frequency","",0,
+  "Enable max suspend frequency","",0,
   "Enable max MC power savings","",0,
   "Enable Permissive SELinux","Enables complete root support, but lowers security",0,
   "Enable Doubletap to wake","Doubletap the screen to wake your device up",0
