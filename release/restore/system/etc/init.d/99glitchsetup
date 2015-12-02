@@ -42,6 +42,27 @@ echo $MINF > /sys/kernel/msm_limiter/suspend_min_freq_2;
 echo $MINF > /sys/kernel/msm_limiter/suspend_min_freq_3;
 echo Min CPU Frequency: $MINF >> $KERNEL_LOGFILE;
 
+#Max suspend CPU_FREQ
+if [ "`grep SCROFF=1 $KERNEL_CONF`" ]; then
+  echo 594000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo 594MHz max screen off >> $KERNEL_LOGFILE;
+elif [ "`grep SCROFF=2 $KERNEL_CONF`" ]; then
+  echo 702000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo 702MHz max screen off >> $KERNEL_LOGFILE;
+elif [ "`grep SCROFF=3 $KERNEL_CONF`" ]; then
+  echo 810000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo 810MHz max screen off >> $KERNEL_LOGFILE;
+elif [ "`grep SCROFF=4 $KERNEL_CONF`" ]; then
+  echo 1026000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo 1026MHz max screen off >> $KERNEL_LOGFILE;
+elif [ "`grep SCROFF=5 $KERNEL_CONF`" ]; then
+  echo 1242000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo 1242MHz max screen off >> $KERNEL_LOGFILE;
+else
+  echo 1512000 > /sys/kernel/msm_limiter/suspend_max_freq;
+  echo max screen off freq set to stock CPU speed >> $KERNEL_LOGFILE;
+fi
+
 #I/O scheduler
 if [ "`grep IOSCHED=1 $KERNEL_CONF`" ]; then
 echo "cfq" > /sys/block/mmcblk0/queue/scheduler;
@@ -232,27 +253,6 @@ elif [ "`grep GPU_UV=7 $KERNEL_CONF`" ]; then
 else
   printf "945000\n1050000\n1150000\n" > /sys/devices/system/cpu/cpufreq/vdd_table/vdd_levels_GPU;
   echo Stock GPU voltage >> $KERNEL_LOGFILE;
-fi
-
-#max scroff
-if [ "`grep SCROFF=1 $KERNEL_CONF`" ]; then
-  echo 594000 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max_freq;
-  echo 594MHz max screen off >> $KERNEL_LOGFILE;
-elif [ "`grep SCROFF=2 $KERNEL_CONF`" ]; then
-  echo 702000 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max_freq;
-  echo 702MHz max screen off >> $KERNEL_LOGFILE;
-elif [ "`grep SCROFF=3 $KERNEL_CONF`" ]; then
-  echo 810000 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max_freq;
-  echo 810MHz max screen off >> $KERNEL_LOGFILE;
-elif [ "`grep SCROFF=4 $KERNEL_CONF`" ]; then
-  echo 1026000 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max_freq;
-  echo 1026MHz max screen off >> $KERNEL_LOGFILE;
-elif [ "`grep SCROFF=5 $KERNEL_CONF`" ]; then
-  echo 1242000 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max_freq;
-  echo 1242MHz max screen off >> $KERNEL_LOGFILE;
-else
-  echo 0 > /sys/devices/system/cpu/cpu0/cpufreq/screen_off_max;
-  echo max screen off freq disabled >> $KERNEL_LOGFILE;
 fi
 
 #Battery life extender
