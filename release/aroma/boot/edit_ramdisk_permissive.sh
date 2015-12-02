@@ -7,6 +7,11 @@ gunzip -c /tmp/ramdisk/initrd.gz | cpio -i
 rm /tmp/ramdisk/initrd.gz
 rm /tmp/initrd.img
 
+#Start glitch script
+if [ $(grep -c "import /init.glitch.rc" /tmp/ramdisk/init.rc) == 0 ]; then
+   sed -i "/import \/init\.trace\.rc/aimport /init.glitch.rc" /tmp/ramdisk/init.rc
+fi
+
 #disable selinux enforcing
 if [ $(grep -c "setenforce 0" /tmp/ramdisk/init.rc) == 0 ] && [ $(grep -c "setenforce 1" /tmp/ramdisk/init.rc) == 0 ]; then
    sed -i "s/setcon u:r:init:s0/setcon u:r:init:s0\n    setenforce 0/" /tmp/ramdisk/init.rc
@@ -22,7 +27,7 @@ if [ $(grep -c "#seclabel u:r:install_recovery:s0" /tmp/ramdisk/init.rc) == 0 ];
 fi
 
 #add init.d support if needed
-if [ $(grep -c "init.d" /tmp/ramdisk/init.rc) == 0 ]; then
+if [ !$(grep -qr "init.d" /tmp/ramdisk/*) ]; then
    echo "" >> /tmp/ramdisk/init.rc
    echo "service userinit /system/xbin/busybox run-parts /system/etc/init.d" >> /tmp/ramdisk/init.rc
    echo "    oneshot" >> /tmp/ramdisk/init.rc
@@ -76,6 +81,11 @@ else
 fi
 
 mv /tmp/fstab /tmp/ramdisk/fstab.flo;
+
+#copy glitch scripts
+cp /tmp/glitch.sh /tmp/ramdisk/sbin/glitch.sh
+chmod 755 /tmp/ramdisk/sbin/glitch.sh
+cp /tmp/init.glitch.rc /tmp/ramdisk/init.glitch.rc
 
 #repack
 find . | cpio -o -H newc | gzip > /tmp/initrd.img

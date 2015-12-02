@@ -10,6 +10,9 @@ if
 
 set_progress(0.3);
 
+ifelse(is_mounted("/system") == "/system", unmount("/system"));
+ifelse(is_mounted("/cache") == "/cache", unmount("/cache"));
+
 package_extract_dir("config", "/tmp");
 set_perm(0, 0, 0777, "/tmp/busybox");
 set_perm(0, 0, 0777, "/tmp/compatibility.sh");
@@ -40,7 +43,6 @@ run_program("/tmp/systemcheck.sh");
 
 ui_print("Installing system files for real.");
 package_extract_dir("system", "/system");
-set_perm_recursive(0, 2000, 0777, 0777, "/system/etc/init.d/99glitchsetup");
 set_perm_recursive(0, 0, 0644, 0644, "/system/lib/modules");
 set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/fstrim");
 
@@ -168,7 +170,16 @@ run_program("/tmp/abootimg", "-u", "/tmp/boot.img", "-f", "/tmp/cmdline.cfg", "-
 
 ui_print("@Glitching your device...");
 run_program("/tmp/busybox", "dd", "if=/tmp/boot.img", "of=/dev/block/mmcblk0p14");
- 
+
+unmount("/system");
+
+ui_print("Wiping /cache");
+run_program("/sbin/busybox", "mount", "/cache");
+delete_recursive("/cache/");
+run_program("/sbin/busybox", "umount", "/cache");
+ui_print("");
+set_progress(0.7);
+
 ui_print("");
 set_progress(0.9);
 

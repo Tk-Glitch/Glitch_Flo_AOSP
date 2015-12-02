@@ -270,10 +270,6 @@ else
   echo Stock charge voltage >> $KERNEL_LOGFILE;
 fi
 
-#Backup settings to sdcard
- cp /system/etc/glitch-settings.conf /sdcard/glitch-settings.conf
- echo "Settings backup created on sdcard root" >> $KERNEL_LOGFILE;
-
 #Wait a bit before applying governor changes
 sleep 20
 
@@ -295,5 +291,9 @@ else
 fi
   echo $governor > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor;
   echo CPU Governor: $governor >> $KERNEL_LOGFILE;
+
+#Backup settings to sdcard
+ cp /system/etc/glitch-settings.conf /sdcard/glitch-settings.conf
+ echo "Settings backup created on sdcard root" >> $KERNEL_LOGFILE;
 
 exit 0
