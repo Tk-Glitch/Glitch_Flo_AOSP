@@ -270,12 +270,8 @@ else
   echo Stock charge voltage >> $KERNEL_LOGFILE;
 fi
 
-#exFAT support
-  insmod /system/lib/modules/exfat.ko;
-  echo exFAT module loaded >> $KERNEL_LOGFILE;
-
 #Backup settings to sdcard
- cp /system/etc/glitch-settings.conf /sdcard/glitch-settings.conf;
+ cp /system/etc/glitch-settings.conf /sdcard/glitch-settings.conf
  echo "Settings backup created on sdcard root" >> $KERNEL_LOGFILE;
 
 #Wait a bit before applying governor changes
