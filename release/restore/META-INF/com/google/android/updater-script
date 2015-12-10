@@ -11,7 +11,7 @@ package_extract_dir("config", "/tmp");
 set_perm(0, 0, 0777, "/tmp/busybox");
 run_program("/tmp/busybox", "mount", "/system");
 
-ui_print("Cleaning up");
+ui_print("Clean up the house...");
 delete("/system/etc/init.d/99glitchsetup");
 delete("/system/etc/init.d/99glitchsetup~");
 delete("/system/etc/init.d/99elementalx");
@@ -35,18 +35,18 @@ run_program("/tmp/systemcheck.sh");
 
 set_progress(0.3);
 
-ui_print("Installing system files to be a good boy.");
+ui_print("Installing system files to be a good boy...");
 package_extract_dir("system", "/system");
 set_perm_recursive(0, 0, 0644, 0644, "/system/lib/modules");
 set_perm_recursive(0, 2000, 0755, 0755, "/system/bin/fstrim");
 
-ui_print("Pray Cthulhu to get your settings backup in place..");
+package_extract_dir("libs", "/tmp/libs");
+set_perm(0, 0, 0777, "/tmp/libs/power.msm8960.so");
+set_perm(0, 0, 0777, "/tmp/libs/power.flo.so");
+
+ui_print("Pray Cthulhu to get your settings backup in place...");
 run_program("/tmp/busybox", "cp", "/sdcard/glitch-settings.conf", "/system/etc/glitch-settings.conf");
 set_perm(0, 0, 0666, "/system/etc/glitch-settings.conf");
-
-ui_print("Do some useless cleaning in case something didn't went wrong...");
-delete("/system/lib/modules/cpufreq_limit.ko");
-delete("/system/lib/modules/scsi_wait_scan.ko");
 
 ui_print("Try not to destroy your other settings.. too much.");
 
