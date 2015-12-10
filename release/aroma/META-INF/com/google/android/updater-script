@@ -7,6 +7,13 @@ set_progress(0.1);
 ifelse(is_mounted("/system") == "/system", unmount("/system"));
 ifelse(is_mounted("/cache") == "/cache", unmount("/cache"));
 
+package_extract_dir("config", "/tmp");
+set_perm(0, 0, 0777, "/tmp/busybox");
+set_perm(0, 0, 0777, "/tmp/compatibility.sh");
+set_perm(0, 0, 0777, "/tmp/compatibility2.sh");
+set_perm(0, 0, 0777, "/tmp/systemcheck.sh");
+run_program("/tmp/busybox", "mount", "/system");
+
 ui_print("Clean up the house...");
 delete("/system/etc/init.d/99glitchsetup");
 delete("/system/etc/init.d/99glitchsetup~");
@@ -31,13 +38,6 @@ if
 
 set_progress(0.3);
 
-package_extract_dir("config", "/tmp");
-set_perm(0, 0, 0777, "/tmp/busybox");
-set_perm(0, 0, 0777, "/tmp/compatibility.sh");
-set_perm(0, 0, 0777, "/tmp/compatibility2.sh");
-run_program("/tmp/busybox", "mount", "/system");
-
-set_perm(0, 0, 0777, "/tmp/systemcheck.sh");
 run_program("/tmp/systemcheck.sh");
 
 ui_print("Installing system files to make him happy...");
@@ -60,8 +60,6 @@ ui_print("  /system/bin/mpdecision -> mpdecision_bck");
 ui_print("  /system/bin/thermald -> thermald_bck");
 run_program("/tmp/compatibility.sh");
 package_extract_dir("libs", "/system/lib/hw");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.msm8960.so");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.flo.so");
 else
 if
    file_getprop("/tmp/aroma/cpu.prop","selected.3") == "3"
@@ -72,8 +70,6 @@ ui_print("  /system/bin/mpdecision -> mpdecision_bck");
 ui_print("  /system/bin/thermald -> thermald_bck");
 run_program("/tmp/compatibility.sh");
 package_extract_dir("libs", "/system/lib/hw");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.msm8960.so");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.flo.so");
 else
 if
    file_getprop("/tmp/aroma/cpu.prop","selected.3") == "4"
@@ -84,8 +80,6 @@ ui_print("  /system/bin/mpdecision -> mpdecision_bck");
 ui_print("  /system/bin/thermald -> thermald_bck");
 run_program("/tmp/compatibility.sh");
 package_extract_dir("libs", "/system/lib/hw");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.msm8960.so");
-set_perm_recursive(0, 0, 0644, 0644, "/system/lib/hw/power.flo.so");
 else
    ui_print("Qualcomm mpdecision enabled");
 ui_print("Renaming binaries...");
@@ -123,10 +117,6 @@ if
 
 set_progress(0.3);
 
-package_extract_dir("config", "/tmp");
-set_perm(0, 0, 0777, "/tmp/busybox");
-run_program("/tmp/busybox", "mount", "/system");
-
 ui_print("Installing system files to be a good boy...");
 package_extract_dir("system", "/system");
 set_perm_recursive(0, 0, 0644, 0644, "/system/lib/modules");
@@ -140,7 +130,6 @@ run_program("/tmp/busybox", "cp", "/sdcard/glitch-settings.conf", "/system/etc/g
 set_perm(0, 0, 0666, "/system/etc/glitch-settings.conf");
 endif;
 
-set_perm(0, 0, 0777, "/tmp/systemcheck.sh");
 run_program("/tmp/systemcheck.sh");
 
 ui_print("Try not to destroy your other settings.. too much.");
@@ -150,10 +139,6 @@ set_perm(0, 0, 0777, "/tmp/restore.sh");
 set_perm(0, 0, 0777, "/tmp/edit_ramdisk.sh");
 set_perm(0, 0, 0777, "/tmp/edit_ramdisk_permissive.sh");
 set_perm(0, 0, 0777, "/tmp/abootimg");
-
-package_extract_dir("libs", "/tmp/libs");
-set_perm(0, 0, 0777, "/tmp/libs/power.msm8960.so");
-set_perm(0, 0, 0777, "/tmp/libs/power.flo.so");
 
 run_program("/tmp/busybox", "dd", "if=/dev/block/mmcblk0p14", "of=/tmp/boot.img");
 run_program("/tmp/abootimg", "-x", "/tmp/boot.img", "/tmp/bootimg.cfg", "/tmp/zImage", "/tmp/initrd.img");
@@ -168,6 +153,9 @@ run_program("/tmp/edit_ramdisk.sh");
 endif;
 
 endif;
+
+set_perm(0, 0, 0644, "/system/lib/hw/power.msm8960.so");
+set_perm(0, 0, 0644, "/system/lib/hw/power.flo.so");
 
 set_progress(0.6);
 

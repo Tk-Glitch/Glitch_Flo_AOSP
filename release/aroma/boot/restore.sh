@@ -26,11 +26,11 @@ busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
 fi
 if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
 busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox mv /tmp/libs/power.msm8960.so /system/lib/hw/power.msm8960.so
+busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
 fi
 if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
 busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox mv /tmp/libs/power.flo.so /system/lib/hw/power.flo.so
+busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
 fi
 fi
 
@@ -40,11 +40,11 @@ busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
 fi
 if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
 busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox mv /tmp/libs/power.msm8960.so /system/lib/hw/power.msm8960.so
+busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
 fi
 if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
 busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox mv /tmp/libs/power.flo.so /system/lib/hw/power.flo.so
+busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
 fi
 fi
 
@@ -54,11 +54,11 @@ busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
 fi
 if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
 busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox mv /tmp/libs/power.msm8960.so /system/lib/hw/power.msm8960.so
+busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
 fi
 if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
 busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox mv /tmp/libs/power.flo.so /system/lib/hw/power.flo.so
+busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
 fi
 fi
 

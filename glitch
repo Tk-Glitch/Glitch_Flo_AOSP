@@ -131,21 +131,23 @@ rm -f $KERNEL_DIR/tmp_$target_defconfig
 }
 
 echo "-----------------------------------------"
-echo "copying modules and zImage"
+echo "copying zImage"
+
+#echo "copying modules and zImage"
 
 #Aroma
-mkdir -p $KERNEL_DIR/release/aroma/system/lib/modules/
+#mkdir -p $KERNEL_DIR/release/aroma/system/lib/modules/
 #Restore
-mkdir -p $KERNEL_DIR/release/restore/system/lib/modules/
+#mkdir -p $KERNEL_DIR/release/restore/system/lib/modules/
 
-cd $target_dir
+#cd $target_dir
 
 #Aroma
-find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/aroma/system/lib/modules/ \;
-"$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/aroma/system/lib/modules/*
+#find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/aroma/system/lib/modules/ \;
+#"$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/aroma/system/lib/modules/*
 #Restore
-find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/restore/system/lib/modules/ \;
-"$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/restore/system/lib/modules/*
+#find -name '*.ko' -exec cp -av {} $KERNEL_DIR/release/restore/system/lib/modules/ \;
+#"$CROSS_PREFIX"strip --strip-unneeded $KERNEL_DIR/release/restore/system/lib/modules/*
 
 cd $KERNEL_DIR
 
@@ -182,7 +184,7 @@ mkdir -p $KERNEL_DIR/release/$target_device
 cd $KERNEL_DIR/release/aroma
 REL=Glitch-$target_name-r$counter$target_variant-full.zip
 
-	zip -q -r ${REL} boot config META-INF system
+	zip -q -r ${REL} boot config libs META-INF system
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
@@ -193,7 +195,7 @@ rm -fr system/lib/modules/*
 cd $KERNEL_DIR/release/restore
 REL2=Glitch-$target_name-r$counter$target_variant-restore.zip
 
-	zip -q -r ${REL2} boot config META-INF system
+	zip -q -r ${REL2} boot config libs META-INF system
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL2}* $KERNEL_DIR/release/$target_device/
 
