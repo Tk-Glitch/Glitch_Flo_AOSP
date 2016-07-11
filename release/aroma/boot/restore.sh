@@ -10,27 +10,11 @@ if [ "$HOTPLUGDRV" == "0" ] ; then
 if [ -e /system/bin/mpdecision_bck ] ; then
 busybox mv /system/bin/mpdecision_bck /system/bin/mpdecision
 fi
-if [ -e /system/lib/hw/power.msm8960.so_bck ] ; then
-busybox rm /system/lib/hw/power.msm8960.so
-busybox mv /system/lib/hw/power.msm8960.so_bck /system/lib/hw/power.msm8960.so
-fi
-if [ -e /system/lib/hw/power.flo.so_bck ] ; then
-busybox rm /system/lib/hw/power.flo.so
-busybox mv /system/lib/hw/power.flo.so_bck /system/lib/hw/power.flo.so
-fi
 fi
 
 if [ "$HOTPLUGDRV" == "1" ] ; then
 if [ -e /system/bin/mpdecision ] ; then
 busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
-fi
-if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
-busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
-fi
-if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
-busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
 fi
 fi
 
@@ -38,27 +22,11 @@ if [ "$HOTPLUGDRV" == "2" ] ; then
 if [ -e /system/bin/mpdecision ] ; then
 busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
 fi
-if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
-busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
-fi
-if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
-busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
-fi
 fi
 
 if [ "$HOTPLUGDRV" == "3" ] ; then
 if [ -e /system/bin/mpdecision ] ; then
 busybox mv /system/bin/mpdecision /system/bin/mpdecision_bck
-fi
-if [ ! -e /system/lib/hw/power.msm8960.so_bck ] ; then
-busybox mv /system/lib/hw/power.msm8960.so /system/lib/hw/power.msm8960.so_bck
-busybox cp /tmp/power.msm8960.so /system/lib/hw/power.msm8960.so
-fi
-if [ ! -e /system/lib/hw/power.flo.so_bck ] ; then
-busybox mv /system/lib/hw/power.flo.so /system/lib/hw/power.flo.so_bck
-busybox cp /tmp/power.flo.so /system/lib/hw/power.flo.so
 fi
 fi
 

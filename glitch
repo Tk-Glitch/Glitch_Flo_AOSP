@@ -184,7 +184,7 @@ mkdir -p $KERNEL_DIR/release/$target_device
 cd $KERNEL_DIR/release/aroma
 REL=Glitch-$target_name-r$counter$target_variant-full.zip
 
-	zip -q -r ${REL} boot config libs META-INF system
+	zip -q -r ${REL} boot config META-INF system
 	#sha256sum ${REL} > ${REL}.sha256sum
 	mv ${REL}* $KERNEL_DIR/release/$target_device/
 
